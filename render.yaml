@@ -32,9 +32,8 @@ services:
           property: host
 
   # React Frontend Client
-  - type: web
+  - type: static
     name: fixer-client
-    env: static
     plan: starter
     region: oregon
     buildCommand: cd client && npm install && npm run build
