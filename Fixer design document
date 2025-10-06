@@ -511,4 +511,34 @@ SQL injection prevention: Parameterized queries only
 XSS protection: Input sanitization
 CORS configuration: Restricted to game domain
 
+## MVP Scope (v1.0)
+
+### Core Systems Included
+- **Authentication**: User registration/login with JWT
+- **World Generation**: Procedural cyberpunk city with 5 districts
+- **Player Movement**: Real-time multiplayer with client prediction
+- **Combat System**: Basic shooting with projectiles and damage
+- **Contract System**: AI fixer missions with rewards
+- **Augmentation System**: Install cybernetic enhancements at medbots
+- **Neural Programs**: Hacking programs (wallhack, aimbot, bullettime) with heat
+- **Inventory System**: Grid-based Tetris inventory
+- **Housing System**: Purchase properties to save progress
+
+### Systems Excluded from MVP
+- Advanced PvP (assassination contracts)
+- Complex NPC AI behaviors
+- Crafting system
+- Advanced progression/leveling
+- Audio system
+- Mobile optimization
+- Advanced anti-cheat
+
+### Success Metrics
+- **DAU**: 100+ daily active users
+- **Session Length**: 15+ minutes average
+- **Retention**: 40% day-1, 20% day-7
+- **Crash Rate**: <1% of sessions
+- **Performance**: 60fps on mid-range hardware
+- **Network**: <100ms latency for 90% of players
+
 This design document provides the complete technical specification needed to implement Fixer. Each system is designed to work together while remaining modular for easier development and testing.
