@@ -1,0 +1,23 @@
+# Node
+node_modules/
+
+# Build output
+/dist/
+*.tsbuildinfo
+
+# Env
+.env
+.env.local
+.env.*.local
+
+# Logs
+logs/
+*.log
+*.log.*
+
+# Coverage
+coverage/
+
+# Prisma local files
+prisma/*.db
+prisma/*.db-journal

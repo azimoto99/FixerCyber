@@ -1,0 +1,59 @@
+services:
+  # PostgreSQL Database
+  - type: pserv
+    name: fixer-database
+    env: docker
+    plan: starter
+    region: oregon
+    
+  # Node.js Backend Server
+  - type: web
+    name: fixer-server
+    env: node
+    plan: starter
+    region: oregon
+    buildCommand: cd server && npm install && npm run build
+    startCommand: cd server && npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 5000
+      - key: DATABASE_URL
+        fromDatabase:
+          name: fixer-database
+          property: connectionString
+      - key: JWT_SECRET
+        generateValue: true
+      - key: CLIENT_URL
+        fromService:
+          type: web
+          name: fixer-client
+          property: host
+
+  # React Frontend Client
+  - type: web
+    name: fixer-client
+    env: static
+    plan: starter
+    region: oregon
+    buildCommand: cd client && npm install && npm run build
+    staticPublishPath: client/dist
+    envVars:
+      - key: VITE_API_URL
+        fromService:
+          type: web
+          name: fixer-server
+          property: host
+      - key: VITE_SERVER_URL
+        fromService:
+          type: web
+          name: fixer-server
+          property: host
+
+databases:
+  - name: fixer-database
+    databaseName: fixer_db
+    user: fixer_user
+
+

@@ -1,0 +1,514 @@
+Fixer - Cyberpunk Roguelike Game Design Document
+Project Overview
+Game Title: Fixer
+Platform: Web Browser (React + Vite)
+Deployment: Render.com
+Domain: fixer.gg
+Genre: Multiplayer Cyberpunk Roguelike
+Perspective: 2D Top-down
+Core Concept
+Players spawn as mercenary "fixers" in a persistent, procedurally generated cyberpunk city. They receive contracts from AI fixers via cyber-augments, complete jobs for credits and gear, and can engage in PvP through assassination contracts. Players can purchase housing to save progress, or restart from scratch upon death. Players find and buy augments which can be installed at a medbot and give significant abilities similar to deus ex. hacking will be a big feature where players can find programs and put them on their nerualnet. Programs work like cheats(wallhack.exe, aimbot.exe, bullettime.exe) and can overheat the player.
+Technical Stack
+Frontend
+
+Framework: React 18 + TypeScript
+Build Tool: Vite
+Styling: Tailwind CSS
+Game Engine: Custom 2D canvas-based engine
+State Management: Zustand
+WebSocket Client: Socket.io-client
+Audio: Web Audio API / Howler.js
+
+Backend
+
+Runtime: Node.js
+Framework: Express.js
+WebSocket: Socket.io
+Database: PostgreSQL with Prisma ORM
+Authentication: JWT tokens
+Deployment: Render.com
+
+Key Libraries
+json{
+  "dependencies": {
+    "react": "^18.2.0",
+    "typescript": "^5.0.0",
+    "vite": "^4.4.0",
+    "tailwindcss": "^3.3.0",
+    "socket.io-client": "^4.7.0",
+    "zustand": "^4.4.0",
+    "howler": "^2.2.3",
+    "express": "^4.18.0",
+    "socket.io": "^4.7.0",
+    "prisma": "^5.0.0",
+    "@prisma/client": "^5.0.0",
+    "jsonwebtoken": "^9.0.0",
+    "bcryptjs": "^2.4.3",
+    "uuid": "^9.0.0"
+  }
+}
+Game Systems
+1. World Generation System
+City Structure
+
+Grid-based generation: 64x64 tile chunks
+District types: Corporate, Industrial, Residential, Underground, Wasteland
+Procedural buildings: Offices, apartments, warehouses, shops
+Road network: Automatic pathfinding between districts
+
+Implementation
+typescriptinterface CityChunk {
+  id: string;
+  x: number;
+  y: number;
+  districtType: DistrictType;
+  buildings: Building[];
+  roads: Road[];
+  generated: boolean;
+  lastAccessed: timestamp;
+}
+
+interface Building {
+  id: string;
+  type: BuildingType;
+  position: Vector2;
+  size: Vector2;
+  hackable: boolean;
+  securityLevel: number;
+  lootTables: LootTable[];
+}
+2. Player System
+Player State
+typescriptinterface Player {
+  id: string;
+  username: string;
+  position: Vector2;
+  health: number;
+  credits: number;
+  inventory: InventoryItem[];
+  augmentations: Augmentation[];
+  housing: Housing | null;
+  isAlive: boolean;
+  lastSeen: timestamp;
+}
+
+interface InventoryItem {
+  id: string;
+  type: ItemType;
+  name: string;
+  gridSize: Vector2;
+  position: Vector2; // In inventory grid
+  stats: ItemStats;
+}
+Grid Inventory System
+
+10x6 grid (60 slots total)
+Tetris-style item placement
+Drag and drop interface
+Item stacking for consumables
+Gear slots for equipped items
+
+3. Contract System
+Contract Types
+typescriptenum ContractType {
+  ASSASSINATION = 'assassination',
+  DATA_EXTRACTION = 'data_extraction',
+  TERRITORY_CONTROL = 'territory_control',
+  SABOTAGE = 'sabotage',
+  ESCORT = 'escort',
+  RECOVERY = 'recovery',
+  SURVEILLANCE = 'surveillance'
+}
+
+interface Contract {
+  id: string;
+  type: ContractType;
+  fixerId: string;
+  playerId: string;
+  target: ContractTarget;
+  reward: ContractReward;
+  timeLimit: number;
+  status: ContractStatus;
+  description: string;
+}
+Assassination Contracts
+
+30-minute timer
+Target notification (optional)
+Stealth mechanics for evasion
+Reward scaling based on target value
+
+4. Combat System
+Real-time Combat
+
+Top-down shooter mechanics
+Line of sight system
+Cover mechanics
+Weapon variety: Pistols, SMGs, rifles, cyber-weapons, melee weapons, swords
+Damage types: Kinetic, energy, EMP
+
+Stealth System
+
+Vision cones for NPCs/players
+Sound propagation
+Stealth augmentations
+Environmental hiding spots
+
+5. Hacking System
+Hacking Interface
+typescriptinterface HackableTarget {
+  id: string;
+  type: HackType;
+  difficulty: number;
+  timeRequired: number;
+  rewards: HackReward[];
+  countermeasures: Countermeasure[];
+}
+
+enum HackType {
+  SECURITY_CAMERA = 'camera',
+  DOOR_LOCK = 'door',
+  TERMINAL = 'terminal',
+  AUGMENTATION = 'aug',
+  NETWORK = 'network'
+}
+Hacking Mechanics
+
+Mini-game system (circuit completion)
+ICE countermeasures (security programs)
+Network infiltration
+Counter-hacking detection
+nerualnet (allows players to download rare programs and execute them. example: aimbot.exe(an aimbot), wallhack.exe(see players through walls), bullettime.exe(slow down time for everyone nearby but you or dodge bullets automatically))
+programs work lke real game cheats
+
+6. Housing System
+Housing Types
+typescriptinterface Housing {
+  id: string;
+  type: HousingType;
+  district: string;
+  position: Vector2;
+  rentCost: number;
+  storage: StorageSpace;
+  features: HousingFeature[];
+}
+
+enum HousingType {
+  SLUM_APARTMENT = 'slum',
+  RESIDENTIAL = 'residential',
+  CORPORATE_SUITE = 'corporate'
+}
+Housing Features
+
+Gear storage (expanded inventory)
+Augmentation workshop
+Safe logout location
+Intel board (contract tracking)
+Monthly rent system
+
+7. Augmentation System
+Augmentation Categories
+typescriptinterface Augmentation {
+  id: string;
+  name: string;
+  category: AugCategory;
+  effects: AugEffect[];
+  powerCost: number;
+  rarity: Rarity;
+}
+
+enum AugCategory {
+  COMBAT = 'combat',
+  STEALTH = 'stealth',
+  HACKING = 'hacking',
+  UTILITY = 'utility'
+}
+Example Augmentations
+
+Thermoptic Camo: Temporary invisibility
+Targeting System: Improved accuracy
+Neural Interface: Faster hacking
+Reinforced Skeleton: Increased health
+
+Multiplayer Architecture
+Server Structure
+typescript// Server-side player management
+class GameServer {
+  private players: Map<string, Player>;
+  private worldChunks: Map<string, CityChunk>;
+  private contracts: Map<string, Contract>;
+  private fixers: Map<string, AIFixer>;
+  
+  // Real-time updates
+  private gameLoop(): void;
+  private handlePlayerMovement(playerId: string, position: Vector2): void;
+  private handleContractCompletion(contractId: string): void;
+  private handlePlayerDeath(playerId: string): void;
+}
+Real-time Communication
+
+Socket.io for real-time events
+Position updates (60 FPS)
+Combat events
+Contract notifications
+World state synchronization
+
+Database Schema
+sql-- Users and authentication
+CREATE TABLE users (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    username VARCHAR(50) UNIQUE NOT NULL,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Player characters
+CREATE TABLE players (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID REFERENCES users(id),
+    position_x INTEGER NOT NULL,
+    position_y INTEGER NOT NULL,
+    health INTEGER DEFAULT 100,
+    credits INTEGER DEFAULT 0,
+    is_alive BOOLEAN DEFAULT true,
+    housing_id UUID REFERENCES housing(id),
+    last_seen TIMESTAMP DEFAULT NOW()
+);
+
+-- World chunks
+CREATE TABLE world_chunks (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    x INTEGER NOT NULL,
+    y INTEGER NOT NULL,
+    district_type VARCHAR(50) NOT NULL,
+    generated_data JSONB,
+    generated_at TIMESTAMP DEFAULT NOW(),
+    UNIQUE(x, y)
+);
+
+-- Contracts
+CREATE TABLE contracts (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    type VARCHAR(50) NOT NULL,
+    fixer_id UUID NOT NULL,
+    player_id UUID REFERENCES players(id),
+    target_data JSONB,
+    reward_credits INTEGER,
+    time_limit INTEGER,
+    status VARCHAR(20) DEFAULT 'active',
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Housing
+CREATE TABLE housing (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    type VARCHAR(50) NOT NULL,
+    district VARCHAR(50) NOT NULL,
+    position_x INTEGER NOT NULL,
+    position_y INTEGER NOT NULL,
+    rent_cost INTEGER NOT NULL,
+    owner_id UUID REFERENCES players(id)
+);
+
+-- Player inventory
+CREATE TABLE inventory_items (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    player_id UUID REFERENCES players(id),
+    item_type VARCHAR(50) NOT NULL,
+    item_data JSONB,
+    grid_x INTEGER,
+    grid_y INTEGER,
+    grid_width INTEGER,
+    grid_height INTEGER
+);
+File Structure
+fixer-game/
+├── client/                          # React frontend
+│   ├── src/
+│   │   ├── components/              # React components
+│   │   │   ├── Game/               # Core game components
+│   │   │   │   ├── GameCanvas.tsx
+│   │   │   │   ├── GameUI.tsx
+│   │   │   │   ├── Inventory.tsx
+│   │   │   │   ├── ContractPanel.tsx
+│   │   │   │   └── HackingInterface.tsx
+│   │   │   ├── Auth/               # Authentication
+│   │   │   │   ├── Login.tsx
+│   │   │   │   └── Register.tsx
+│   │   │   └── Common/             # Shared components
+│   │   │       ├── Button.tsx
+│   │   │       └── Modal.tsx
+│   │   ├── game/                   # Game engine
+│   │   │   ├── engine/             # Core engine
+│   │   │   │   ├── GameEngine.ts
+│   │   │   │   ├── Renderer.ts
+│   │   │   │   ├── InputManager.ts
+│   │   │   │   └── AudioManager.ts
+│   │   │   ├── systems/            # Game systems
+│   │   │   │   ├── WorldSystem.ts
+│   │   │   │   ├── CombatSystem.ts
+│   │   │   │   ├── ContractSystem.ts
+│   │   │   │   ├── HackingSystem.ts
+│   │   │   │   └── InventorySystem.ts
+│   │   │   ├── entities/           # Game objects
+│   │   │   │   ├── Player.ts
+│   │   │   │   ├── Building.ts
+│   │   │   │   ├── Item.ts
+│   │   │   │   └── Projectile.ts
+│   │   │   └── utils/              # Game utilities
+│   │   │       ├── Vector2.ts
+│   │   │       ├── CollisionDetection.ts
+│   │   │       └── WorldGenerator.ts
+│   │   ├── stores/                 # State management
+│   │   │   ├── gameStore.ts
+│   │   │   ├── playerStore.ts
+│   │   │   ├── worldStore.ts
+│   │   │   └── contractStore.ts
+│   │   ├── services/               # API communication
+│   │   │   ├── api.ts
+│   │   │   ├── socket.ts
+│   │   │   └── auth.ts
+│   │   ├── types/                  # TypeScript definitions
+│   │   │   ├── game.ts
+│   │   │   ├── player.ts
+│   │   │   ├── world.ts
+│   │   │   └── contracts.ts
+│   │   └── assets/                 # Game assets
+│   │       ├── sprites/
+│   │       ├── sounds/
+│   │       └── ui/
+│   ├── index.html
+│   ├── package.json
+│   ├── vite.config.ts
+│   └── tailwind.config.js
+├── server/                          # Node.js backend
+│   ├── src/
+│   │   ├── routes/                 # API routes
+│   │   │   ├── auth.ts
+│   │   │   ├── players.ts
+│   │   │   ├── contracts.ts
+│   │   │   └── world.ts
+│   │   ├── services/               # Business logic
+│   │   │   ├── AuthService.ts
+│   │   │   ├── GameService.ts
+│   │   │   ├── WorldService.ts
+│   │   │   ├── ContractService.ts
+│   │   │   └── PlayerService.ts
+│   │   ├── game/                   # Server game logic
+│   │   │   ├── GameServer.ts
+│   │   │   ├── WorldManager.ts
+│   │   │   ├── ContractManager.ts
+│   │   │   ├── CombatManager.ts
+│   │   │   └── AIFixer.ts
+│   │   ├── database/               # Database layer
+│   │   │   ├── models/
+│   │   │   │   ├── User.ts
+│   │   │   │   ├── Player.ts
+│   │   │   │   ├── Contract.ts
+│   │   │   │   └── Housing.ts
+│   │   │   └── migrations/
+│   │   ├── middleware/             # Express middleware
+│   │   │   ├── auth.ts
+│   │   │   ├── validation.ts
+│   │   │   └── rateLimiting.ts
+│   │   ├── types/                  # Shared type definitions
+│   │   └── utils/                  # Utilities
+│   │       ├── logger.ts
+│   │       ├── encryption.ts
+│   │       └── worldGen.ts
+│   ├── prisma/
+│   │   ├── schema.prisma
+│   │   └── seed.ts
+│   ├── package.json
+│   └── tsconfig.json
+├── shared/                          # Shared types/utilities
+│   ├── types/
+│   │   ├── game.ts
+│   │   ├── player.ts
+│   │   └── contracts.ts
+│   └── utils/
+├── README.md
+├── docker-compose.yml
+└── render.yaml                      # Render deployment config
+Implementation Priority
+Phase 1: Core Foundation (Week 1-2)
+
+Project setup with Vite + React + TypeScript
+Basic authentication system
+Simple 2D canvas rendering
+Player movement and controls
+WebSocket connection for multiplayer
+Basic world generation (simple grid)
+
+Phase 2: Core Gameplay (Week 3-4)
+
+Grid inventory system
+Basic contract system (simple fetch quests)
+Combat mechanics (shooting, health)
+Item drops and pickup
+Death/respawn system
+
+Phase 3: Advanced Features (Week 5-6)
+
+Housing system with save/load
+Assassination contracts with timers
+Stealth mechanics
+Hacking mini-games
+Augmentation system
+
+Phase 4: Polish & Monetization (Week 7-8)
+
+Cosmetic shop system
+Battle pass style progression
+Audio system and effects
+Performance optimization
+Deployment to Render
+
+Monetization Strategy
+Revenue Streams
+
+Cosmetic Items: Character skins, weapon skins, augmentation visuals
+Premium Housing: Exclusive apartment styles and locations
+Battle Pass: Seasonal progression with exclusive rewards
+Premium Contracts: Special high-value missions
+Storage Expansion: Additional inventory/housing storage
+
+Implementation
+
+In-game currency: Premium credits (purchasable)
+Free currency: Regular credits (earned through gameplay)
+No pay-to-win: All gameplay advantages obtainable through play
+Ethical microtransactions: Fair pricing, no loot boxes
+
+Performance Considerations
+Client Optimization
+
+Viewport culling: Only render visible game objects
+Object pooling: Reuse bullets, effects, UI elements
+Lazy loading: Load world chunks as needed
+Asset optimization: Compressed sprites, efficient audio
+
+Server Optimization
+
+Spatial partitioning: Divide world into regions for efficient updates
+Update frequency: Critical data at 30Hz, less critical at 10Hz
+Database optimization: Proper indexing, connection pooling
+Caching: Redis for frequently accessed data
+
+Security Considerations
+Client Security
+
+Input validation: All client data validated server-side
+Anti-cheat: Server-authoritative movement and combat
+Rate limiting: Prevent spam and DoS attacks
+Secure authentication: JWT with proper expiration
+
+Data Protection
+
+Password hashing: bcrypt with proper salt rounds
+SQL injection prevention: Parameterized queries only
+XSS protection: Input sanitization
+CORS configuration: Restricted to game domain
+
+This design document provides the complete technical specification needed to implement Fixer. Each system is designed to work together while remaining modular for easier development and testing.

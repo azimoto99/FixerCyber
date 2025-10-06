@@ -1,0 +1,194 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(uuid())
+  username     String   @unique
+  email        String   @unique
+  passwordHash String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Relations
+  players Player[]
+
+  @@map("users")
+}
+
+model Player {
+  id        String   @id @default(uuid())
+  userId    String   @unique
+  username  String
+  positionX Int      @default(0)
+  positionY Int      @default(0)
+  health    Int      @default(100)
+  credits   Int      @default(0)
+  isAlive   Boolean  @default(true)
+  lastSeen  DateTime @default(now())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  inventoryItems InventoryItem[]
+  contracts      Contract[]
+  housing        Housing[]        @relation("HousingOwner")
+  playerAugmentations PlayerAugmentation[]
+
+  @@map("players")
+}
+
+model WorldChunk {
+  id            String   @id @default(uuid())
+  x             Int
+  y             Int
+  districtType  String
+  generatedData Json?
+  generatedAt   DateTime @default(now())
+  lastAccessed  DateTime @default(now())
+
+  @@unique([x, y])
+  @@map("world_chunks")
+}
+
+model Contract {
+  id            String      @id @default(uuid())
+  type          String
+  fixerId       String
+  playerId      String?
+  targetData    Json?
+  rewardCredits Int         @default(0)
+  timeLimit     Int         @default(30)
+  status        ContractStatus @default(AVAILABLE)
+  description   String?
+  createdAt     DateTime    @default(now())
+  completedAt   DateTime?
+  cancelledAt   DateTime?
+
+  // Relations
+  player Player? @relation(fields: [playerId], references: [id], onDelete: SetNull)
+  fixer  Fixer  @relation(fields: [fixerId], references: [id])
+
+  @@map("contracts")
+}
+
+model Fixer {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  faction     String
+  reputation  Int      @default(0)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  // Relations
+  contracts Contract[]
+
+  @@map("fixers")
+}
+
+model Housing {
+  id        String     @id @default(uuid())
+  type      HousingType
+  district  String
+  positionX Int
+  positionY Int
+  rentCost  Int
+  ownerId    String?
+  createdAt DateTime   @default(now())
+
+  // Relations
+  owner Player? @relation("HousingOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+
+  @@map("housing")
+}
+
+model InventoryItem {
+  id         String   @id @default(uuid())
+  playerId   String
+  itemType   String
+  itemData   Json?
+  gridX      Int?
+  gridY      Int?
+  gridWidth  Int      @default(1)
+  gridHeight Int      @default(1)
+  createdAt  DateTime @default(now())
+
+  // Relations
+  player Player @relation(fields: [playerId], references: [id], onDelete: Cascade)
+
+  @@map("inventory_items")
+}
+
+model Augmentation {
+  id          String      @id @default(uuid())
+  name        String
+  category    AugCategory
+  effects     Json
+  powerCost   Int         @default(0)
+  rarity      Rarity      @default(COMMON)
+  description String?
+  createdAt   DateTime    @default(now())
+
+  // Relations
+  playerAugmentations PlayerAugmentation[]
+
+  @@map("augmentations")
+}
+
+model PlayerAugmentation {
+  id             String       @id @default(uuid())
+  playerId       String
+  augmentationId String
+  isActive       Boolean      @default(true)
+  installedAt    DateTime    @default(now())
+
+  // Relations
+  player       Player        @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  augmentation Augmentation  @relation(fields: [augmentationId], references: [id], onDelete: Cascade)
+
+  @@unique([playerId, augmentationId])
+  @@map("player_augmentations")
+}
+
+// Enums
+enum ContractStatus {
+  AVAILABLE
+  ACTIVE
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+  EXPIRED
+}
+
+enum HousingType {
+  SLUM_APARTMENT
+  RESIDENTIAL
+  CORPORATE_SUITE
+}
+
+enum AugCategory {
+  COMBAT
+  STEALTH
+  HACKING
+  UTILITY
+}
+
+enum Rarity {
+  COMMON
+  UNCOMMON
+  RARE
+  EPIC
+  LEGENDARY
+}
+
+
+
