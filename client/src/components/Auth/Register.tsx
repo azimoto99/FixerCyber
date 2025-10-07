@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useGameStore } from '../../stores/gameStore'
+import { apiService } from '../../services/api'
 
 export function Register() {
   const [username, setUsername] = useState('')
@@ -20,16 +21,13 @@ export function Register() {
     setLoading(true)
     
     try {
-      // TODO: Implement actual registration
-      console.log('Registration attempt:', { username, email, password })
-      
-      // Simulate registration success
-      setTimeout(() => {
-        setCurrentView('login')
-        setLoading(false)
-      }, 1000)
+      await apiService.register(username, email, password)
+      alert('Registration successful. Please log in.')
+      setCurrentView('login')
     } catch (error) {
       console.error('Registration failed:', error)
+      alert('Registration failed. Please try again.')
+    } finally {
       setLoading(false)
     }
   }

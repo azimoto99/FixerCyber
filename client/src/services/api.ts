@@ -1,5 +1,6 @@
 // API service for communicating with the backend
-const API_BASE_URL = (import.meta as any).env?.VITE_API_URL || 'http://localhost:5000/api'
+// Prefer explicit VITE_API_URL; fallback to same-origin '/api' for production proxies
+const API_BASE_URL = ((import.meta as any).env?.VITE_API_URL as string) || '/api'
 
 class ApiService {
   private async request<T>(

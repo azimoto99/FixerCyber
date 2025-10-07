@@ -30,10 +30,8 @@ export function GameCanvas() {
       // Draw cyberpunk grid
       drawGrid(ctx, canvas.width, canvas.height)
 
-      // Draw player
-      if (player) {
-        drawPlayer(ctx, player)
-      }
+      // Draw player (fallback dummy if none yet)
+      drawPlayer(ctx, player ?? { health: 100 })
 
       // Draw world elements
       if (world) {

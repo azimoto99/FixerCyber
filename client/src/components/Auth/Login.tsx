@@ -1,28 +1,54 @@
 import { useState } from 'react'
 import { useGameStore } from '../../stores/gameStore'
+import { apiService } from '../../services/api'
 
 export function Login() {
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
-  const { setCurrentView, setAuthenticated } = useGameStore()
+  const { setCurrentView, setAuthenticated, setPlayer } = useGameStore()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
     
     try {
-      // TODO: Implement actual authentication
-      console.log('Login attempt:', { username, password })
-      
-      // Simulate login success
-      setTimeout(() => {
-        setAuthenticated(true)
-        setCurrentView('game')
-        setLoading(false)
-      }, 1000)
+      const result: any = await apiService.login(username, password)
+
+      if (result?.token) {
+        localStorage.setItem('auth_token', result.token)
+      }
+
+      // Fetch or create player profile
+      try {
+        const me: any = await apiService.getPlayer()
+        setPlayer({
+          id: me.id,
+          username: me.username,
+          position: me.position ?? { x: 0, y: 0 },
+          health: me.health ?? 100,
+          credits: me.credits ?? 0,
+          isAlive: me.isAlive ?? true,
+        })
+      } catch (_) {
+        // If no player profile exists yet, create one
+        const created: any = await apiService.createPlayer(username)
+        setPlayer({
+          id: created.id,
+          username: created.username ?? username,
+          position: created.position ?? { x: 0, y: 0 },
+          health: created.health ?? 100,
+          credits: created.credits ?? 0,
+          isAlive: created.isAlive ?? true,
+        })
+      }
+
+      setAuthenticated(true)
+      setCurrentView('game')
     } catch (error) {
       console.error('Login failed:', error)
+      alert('Login failed. Please check your credentials and try again.')
+    } finally {
       setLoading(false)
     }
   }
