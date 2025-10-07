@@ -223,7 +223,7 @@ export class Housing {
       id: this.id,
       type: this.type,
       district: this.district,
-      position: this.position.toJSON(),
+      position: this.position, // Vector2 is an interface, not a class with toJSON method
       rentCost: this.rentCost,
       ownerId: this.ownerId,
       storage: this.storage,

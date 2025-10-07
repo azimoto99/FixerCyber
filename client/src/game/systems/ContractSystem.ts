@@ -204,7 +204,7 @@ export class ContractSystem extends EventEmitter {
 
   private getRandomAIFixer() {
     const fixers = Array.from(this.aiFixers.values())
-    return fixers[Math.floor(Math.random() * fixers.size)]
+    return fixers[Math.floor(Math.random() * fixers.length)]
   }
 
   private createContract(fixer: any): Contract {
@@ -249,6 +249,24 @@ export class ContractSystem extends EventEmitter {
         type: 'territory',
         position: { x: Math.random() * 2000 - 1000, y: Math.random() * 2000 - 1000 },
         data: { district: 'downtown', controlLevel: Math.floor(Math.random() * 5) + 1 }
+      },
+      [ContractType.ESCORT]: {
+        id: 'escort_' + this.generateId(),
+        type: 'person',
+        position: { x: Math.random() * 2000 - 1000, y: Math.random() * 2000 - 1000 },
+        data: { name: 'VIP', importance: Math.floor(Math.random() * 5) + 1 }
+      },
+      [ContractType.RECOVERY]: {
+        id: 'recovery_' + this.generateId(),
+        type: 'item',
+        position: { x: Math.random() * 2000 - 1000, y: Math.random() * 2000 - 1000 },
+        data: { itemType: 'data', value: Math.floor(Math.random() * 1000) + 100 }
+      },
+      [ContractType.SURVEILLANCE]: {
+        id: 'surveillance_' + this.generateId(),
+        type: 'area',
+        position: { x: Math.random() * 2000 - 1000, y: Math.random() * 2000 - 1000 },
+        data: { area: 'downtown', duration: Math.floor(Math.random() * 24) + 1 }
       }
     }
 

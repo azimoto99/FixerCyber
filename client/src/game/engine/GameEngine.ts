@@ -21,8 +21,8 @@ export class GameEngine {
   private isRunning = false
   private lastTime = 0
   private deltaTime = 0
-  private fps = 60
-  private frameTime = 1000 / this.fps
+  private _fps = 60
+  // private frameTime = 1000 / this.fps // Unused variable removed
 
   constructor(canvas: HTMLCanvasElement) {
     this.renderer = new Renderer(canvas)
@@ -39,11 +39,11 @@ export class GameEngine {
 
   private setupEventListeners() {
     // Input events
-    this.inputManager.on('move', (data) => {
+    this.inputManager.on('move', (data: any) => {
       this.worldSystem.handlePlayerMovement(data)
     })
 
-    this.inputManager.on('action', (data) => {
+    this.inputManager.on('action', (data: any) => {
       this.handlePlayerAction(data)
     })
 
@@ -73,20 +73,20 @@ export class GameEngine {
         this.worldSystem.handleInteraction(data)
         break
       case 'inventory':
-        this.inventorySystem.handleInventoryAction(data)
+        this.inventorySystem.handleInventoryAction(data, null) // Added missing second parameter
         break
     }
   }
 
-  private handleCombatEvent(event: any) {
-    // Handle combat events (damage, death, etc.)
-    console.log('Combat event:', event)
-  }
+  // private handleCombatEvent(event: any) {
+  //   // Handle combat events (damage, death, etc.)
+  //   console.log('Combat event:', event)
+  // }
 
-  private handleContractUpdate(contract: any) {
-    // Handle contract updates
-    console.log('Contract update:', contract)
-  }
+  // private handleContractUpdate(contract: any) {
+  //   // Handle contract updates
+  //   console.log('Contract update:', contract)
+  // }
 
   start() {
     if (this.isRunning) return

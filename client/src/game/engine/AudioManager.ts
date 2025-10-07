@@ -15,13 +15,13 @@ export class AudioManager {
     // Initialize Web Audio API context
     try {
       const AudioContext = window.AudioContext || (window as any).webkitAudioContext
-      this.audioContext = new AudioContext()
+      this._audioContext = new AudioContext()
     } catch (error) {
       console.warn('Web Audio API not supported:', error)
     }
   }
 
-  private audioContext: AudioContext | null = null
+  private _audioContext: AudioContext | null = null
 
   // Sound loading and management
   loadSound(name: string, url: string): Promise<void> {
@@ -34,7 +34,7 @@ export class AudioManager {
         resolve()
       })
       
-      audio.addEventListener('error', (error) => {
+      audio.addEventListener('error', (error: Event) => {
         console.error(`Failed to load sound ${name}:`, error)
         reject(error)
       })
@@ -50,7 +50,7 @@ export class AudioManager {
     if (sound) {
       sound.volume = volume * this.sfxVolume * this.masterVolume
       sound.currentTime = 0
-      sound.play().catch(error => {
+      sound.play().catch((error: Error) => {
         console.warn(`Failed to play sound ${name}:`, error)
       })
     }
@@ -65,7 +65,7 @@ export class AudioManager {
     if (music) {
       music.volume = this.musicVolume * this.masterVolume
       music.loop = loop
-      music.play().catch(error => {
+      music.play().catch((error: Error) => {
         console.warn(`Failed to play music ${name}:`, error)
       })
       this.music = music

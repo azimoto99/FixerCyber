@@ -1,4 +1,4 @@
-import React from 'react'
+// React import removed as it's not used in this file
 import { GameCanvas } from './components/Game/GameCanvas'
 import { GameUI } from './components/Game/GameUI'
 import { Login } from './components/Auth/Login'

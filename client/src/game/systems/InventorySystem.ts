@@ -146,8 +146,10 @@ export class InventorySystem extends EventEmitter {
 
   // Grid management
   private findItemPosition(item: InventoryItem): Vector2 | null {
-    for (let y = 0; y <= this.gridHeight - item.gridSize.height; y++) {
-      for (let x = 0; x <= this.gridWidth - item.gridSize.width; x++) {
+    const height = item.gridSize.height || 1
+    const width = item.gridSize.width || 1
+    for (let y = 0; y <= this.gridHeight - height; y++) {
+      for (let x = 0; x <= this.gridWidth - width; x++) {
         if (this.canPlaceItemAt(item, { x, y })) {
           return { x, y }
         }
@@ -159,12 +161,14 @@ export class InventorySystem extends EventEmitter {
   private canPlaceItemAt(item: InventoryItem, position: Vector2): boolean {
     // Check bounds
     if (position.x < 0 || position.y < 0) return false
-    if (position.x + item.gridSize.width > this.gridWidth) return false
-    if (position.y + item.gridSize.height > this.gridHeight) return false
+    const width = item.gridSize.width || 1
+    const height = item.gridSize.height || 1
+    if (position.x + width > this.gridWidth) return false
+    if (position.y + height > this.gridHeight) return false
 
     // Check if all required cells are empty
-    for (let y = position.y; y < position.y + item.gridSize.height; y++) {
-      for (let x = position.x; x < position.x + item.gridSize.width; x++) {
+    for (let y = position.y; y < position.y + height; y++) {
+      for (let x = position.x; x < position.x + width; x++) {
         if (this.grid[y][x] !== null) {
           return false
         }
@@ -175,8 +179,10 @@ export class InventorySystem extends EventEmitter {
   }
 
   private placeItemInGrid(item: InventoryItem, position: Vector2) {
-    for (let y = position.y; y < position.y + item.gridSize.height; y++) {
-      for (let x = position.x; x < position.x + item.gridSize.width; x++) {
+    const height = item.gridSize.height || 1
+    const width = item.gridSize.width || 1
+    for (let y = position.y; y < position.y + height; y++) {
+      for (let x = position.x; x < position.x + width; x++) {
         this.grid[y][x] = item.id
       }
     }
@@ -331,6 +337,17 @@ export class InventorySystem extends EventEmitter {
 
   isFull(): boolean {
     return this.getFreeSlots() === 0
+  }
+
+  // Missing methods
+  rotateItem(itemId: string): boolean {
+    // TODO: Implement item rotation logic
+    return false
+  }
+
+  dropItem(itemId: string): boolean {
+    // TODO: Implement item drop logic
+    return false
   }
 
   // Cleanup

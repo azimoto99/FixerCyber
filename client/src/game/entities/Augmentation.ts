@@ -44,7 +44,7 @@ export class Augmentation {
     
     // Check requirements
     for (const [requirement, value] of Object.entries(this.requirements)) {
-      if (player[requirement] < value) return false
+      if (player[requirement] < (value as number)) return false
     }
     
     return true
@@ -67,7 +67,7 @@ export class Augmentation {
     return true
   }
 
-  private checkRequirements(player: any): boolean {
+  private _checkRequirements(player: any): boolean {
     // Check level requirement
     if (this.requirements.level && player.level < this.requirements.level) return false
 
@@ -354,7 +354,7 @@ export class Augmentation {
     const base = baseEffects[category] || {}
     const multiplier = this.getRarityMultiplier(rarity)
     
-    const effects = { ...base }
+    const effects = { ...base } as any
     for (const key in effects) {
       if (typeof effects[key] === 'number') {
         effects[key] = Math.floor(effects[key] * multiplier)
