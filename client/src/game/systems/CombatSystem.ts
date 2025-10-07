@@ -54,6 +54,8 @@ export class CombatSystem extends EventEmitter {
   private playerHealth: Map<string, PlayerHealth> = new Map()
   private playerAmmo: Map<string, Map<string, number>> = new Map()
   private playerReloading: Map<string, { weapon: string, endTime: number }> = new Map()
+  private deadPlayers: Map<string, { deathTime: number, killerId: string, respawnTime: number }> = new Map()
+  private respawnCallbacks: Map<string, () => void> = new Map()
   private combatState: any = {
     inCombat: false,
     combatStartTime: 0,
@@ -73,10 +75,12 @@ export class CombatSystem extends EventEmitter {
 
   update(deltaTime: number) {
     this.updateProjectiles(deltaTime)
+    this.checkProjectileCollisions() // Check collisions every frame
     this.updateDamageEvents(deltaTime)
     this.updateCombatState(deltaTime)
     this.updateReloading(deltaTime)
     this.updateHealthRegeneration(deltaTime)
+    this.updateRespawnTimers(deltaTime)
   }
 
   private updateProjectiles(deltaTime: number) {
@@ -356,20 +360,36 @@ export class CombatSystem extends EventEmitter {
       timestamp: Date.now()
     })
 
-    // Check for death
+  // Check for death
     if (targetHealth.currentHealth <= 0) {
       this.emit('playerKilled', { targetId, killerId: sourceId })
-      this.handlePlayerDeath(targetId)
+      this.handlePlayerDeath(targetId, sourceId)
     }
   }
 
-  private handlePlayerDeath(playerId: string) {
-    // Remove player from health tracking
+  private handlePlayerDeath(playerId: string, killerId?: string) {
+    // In a roguelike, death means starting over completely
+    // No respawn timer - player must restart from scratch
+    
+    // Mark player as dead permanently (until they create new character)
+    this.deadPlayers.set(playerId, {
+      deathTime: Date.now(),
+      killerId: killerId || 'unknown',
+      respawnTime: -1 // No automatic respawn in roguelike
+    })
+    
+    // Permanently remove player from all systems
     this.playerHealth.delete(playerId)
-    // Stop any ongoing reload
     this.playerReloading.delete(playerId)
-    // Clear ammo (will be restored on respawn)
     this.playerAmmo.delete(playerId)
+    
+    // Emit death event - player loses EVERYTHING
+    this.emit('playerDied', { 
+      playerId, 
+      killerId,
+      permaDeath: true,
+      message: 'You have been flatlined. All progress lost.'
+    })
   }
 
   // Projectile collision
@@ -424,14 +444,17 @@ export class CombatSystem extends EventEmitter {
   }
 
   private handleProjectileHit(projectile: any, collision: any) {
-    const damageEvent = {
-      targetId: collision.targetId,
-      damage: projectile.damage,
-      damageType: this.getDamageType(projectile.weapon),
-      sourceId: projectile.playerId
+    if (collision.type === 'player') {
+      // Only create damage event for player hits
+      const damageEvent = {
+        targetId: collision.targetId,
+        damage: projectile.damage,
+        damageType: this.getDamageType(projectile.weapon),
+        sourceId: projectile.playerId
+      }
+      this.damageEvents.push(damageEvent)
     }
-
-    this.damageEvents.push(damageEvent)
+    
     this.emit('projectileHit', { projectile, collision })
   }
 
@@ -592,7 +615,61 @@ export class CombatSystem extends EventEmitter {
     this.playerHealth.clear()
     this.playerAmmo.clear()
     this.playerReloading.clear()
+    this.deadPlayers.clear()
+    this.respawnCallbacks.clear()
     this.resetCombatState()
+  }
+  
+  // Death tracking system (no automatic respawn in roguelike)
+  private updateRespawnTimers(_deltaTime: number) {
+    // In roguelike mode, there's no automatic respawn
+    // Players must manually restart with a new character
+    // This function is kept for potential future use with housing saves
+  }
+  
+  // Create new character after permadeath
+  createNewCharacter(playerId: string, spawnPosition?: Vector2) {
+    // Remove from dead players list
+    this.deadPlayers.delete(playerId)
+    
+    // Initialize as completely new character with starting stats
+    this.initializePlayer(playerId, 100, 0) // Start with base health, no armor
+    
+    // Emit new character event
+    this.emit('newCharacterCreated', { 
+      playerId, 
+      position: spawnPosition || { x: 0, y: 0 },
+      health: 100,
+      credits: 0, // Start with no money
+      inventory: [] // Empty inventory
+    })
+    
+    // Call any registered restart callbacks
+    const callback = this.respawnCallbacks.get(playerId)
+    if (callback) {
+      callback()
+      this.respawnCallbacks.delete(playerId)
+    }
+  }
+  
+  onRespawn(playerId: string, callback: () => void) {
+    this.respawnCallbacks.set(playerId, callback)
+  }
+  
+  isPlayerDead(playerId: string): boolean {
+    return this.deadPlayers.has(playerId)
+  }
+  
+  getRespawnTimer(playerId: string): number {
+    const deathInfo = this.deadPlayers.get(playerId)
+    if (!deathInfo) return 0
+    
+    const timeRemaining = Math.max(0, deathInfo.respawnTime - Date.now())
+    return timeRemaining
+  }
+  
+  getDeathInfo(playerId: string) {
+    return this.deadPlayers.get(playerId)
   }
 }
 

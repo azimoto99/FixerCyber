@@ -198,20 +198,70 @@ export class IsometricRenderer {
 
     this.ctx.save()
     
-    // Ground tile colors based on type
-    const colors = {
-      street: '#2a2a2a',
-      sidewalk: '#3a3a3a',
-      grass: '#1a3a1a',
-      concrete: '#4a4a4a',
-      dirt: '#3a2a1a',
-      building: '#2f2f2f',
-      door: '#5a4a3a' // slightly warmer brown to stand out
+    // Enhanced cyberpunk tile colors with gradients
+    const tileConfigs = {
+      street: {
+        baseColor: '#1a1a1f',
+        highlightColor: '#252530',
+        pattern: 'asphalt',
+        hasGlow: false
+      },
+      sidewalk: {
+        baseColor: '#2a2a35',
+        highlightColor: '#35354a',
+        pattern: 'concrete',
+        hasGlow: true,
+        glowColor: 'rgba(0, 255, 255, 0.05)'
+      },
+      grass: {
+        baseColor: '#0a1a0a',
+        highlightColor: '#1a2a1a',
+        pattern: 'organic',
+        hasGlow: false
+      },
+      concrete: {
+        baseColor: '#303040',
+        highlightColor: '#404055',
+        pattern: 'tech',
+        hasGlow: true,
+        glowColor: 'rgba(255, 0, 255, 0.03)'
+      },
+      dirt: {
+        baseColor: '#2a1a0a',
+        highlightColor: '#3a2a1a',
+        pattern: 'rough',
+        hasGlow: false
+      },
+      building: {
+        baseColor: '#1f1f2a',
+        highlightColor: '#2a2a3f',
+        pattern: 'metal',
+        hasGlow: false
+      },
+      door: {
+        baseColor: '#4a3a2a',
+        highlightColor: '#5a4a3a',
+        pattern: 'tech',
+        hasGlow: true,
+        glowColor: 'rgba(255, 200, 0, 0.2)'
+      }
     }
     
-    this.ctx.fillStyle = colors[groundType as keyof typeof colors] || colors.concrete
+    const config = tileConfigs[groundType as keyof typeof tileConfigs] || tileConfigs.concrete
     
-    // Draw isometric tile
+    // Draw isometric tile with gradient for depth
+    const gradient = this.ctx.createLinearGradient(
+      screenPos.x - tileWidth / 2,
+      screenPos.y,
+      screenPos.x + tileWidth / 2,
+      screenPos.y + tileHeight
+    )
+    gradient.addColorStop(0, config.highlightColor)
+    gradient.addColorStop(1, config.baseColor)
+    
+    this.ctx.fillStyle = gradient
+    
+    // Draw main tile
     this.ctx.beginPath()
     this.ctx.moveTo(screenPos.x, screenPos.y)
     this.ctx.lineTo(screenPos.x + tileWidth / 2, screenPos.y + tileHeight / 2)
@@ -220,12 +270,53 @@ export class IsometricRenderer {
     this.ctx.closePath()
     this.ctx.fill()
     
-    // Add subtle tile outline only for non-street
-    if (groundType !== 'street') {
-      this.ctx.strokeStyle = 'rgba(255,255,255,0.08)'
-      this.ctx.lineWidth = 0.5
+    // Add surface patterns for visual interest
+    if (config.pattern === 'asphalt' && groundType === 'street') {
+      // Road markings
+      if (Math.abs(tileX % 4) < 1) {
+        this.ctx.strokeStyle = 'rgba(255, 255, 100, 0.3)'
+        this.ctx.lineWidth = 2 * this.camera.zoom
+        this.ctx.setLineDash([10 * this.camera.zoom, 10 * this.camera.zoom])
+        this.ctx.beginPath()
+        this.ctx.moveTo(screenPos.x - tileWidth / 4, screenPos.y + tileHeight / 4)
+        this.ctx.lineTo(screenPos.x + tileWidth / 4, screenPos.y + tileHeight * 3 / 4)
+        this.ctx.stroke()
+        this.ctx.setLineDash([])
+      }
+    } else if (config.pattern === 'concrete') {
+      // Concrete cracks
+      if (Math.random() < 0.1) {
+        this.ctx.strokeStyle = 'rgba(0, 0, 0, 0.3)'
+        this.ctx.lineWidth = 0.5 * this.camera.zoom
+        this.ctx.beginPath()
+        this.ctx.moveTo(screenPos.x - tileWidth / 3, screenPos.y + tileHeight / 3)
+        this.ctx.lineTo(screenPos.x + tileWidth / 4, screenPos.y + tileHeight * 2 / 3)
+        this.ctx.stroke()
+      }
+    } else if (config.pattern === 'tech') {
+      // Tech panel lines
+      this.ctx.strokeStyle = 'rgba(0, 255, 255, 0.1)'
+      this.ctx.lineWidth = 0.5 * this.camera.zoom
+      this.ctx.beginPath()
+      this.ctx.moveTo(screenPos.x - tileWidth / 3, screenPos.y + tileHeight / 2)
+      this.ctx.lineTo(screenPos.x + tileWidth / 3, screenPos.y + tileHeight / 2)
       this.ctx.stroke()
     }
+    
+    // Add neon glow for certain tiles
+    if (config.hasGlow && config.glowColor) {
+      this.ctx.shadowColor = config.glowColor
+      this.ctx.shadowBlur = 10 * this.camera.zoom
+      this.ctx.strokeStyle = config.glowColor
+      this.ctx.lineWidth = 1
+      this.ctx.stroke()
+      this.ctx.shadowBlur = 0
+    }
+    
+    // Tile edges for depth
+    this.ctx.strokeStyle = 'rgba(100, 100, 120, 0.2)'
+    this.ctx.lineWidth = 0.5
+    this.ctx.stroke()
     
     this.ctx.restore()
   }
@@ -321,25 +412,74 @@ export class IsometricRenderer {
 
     this.ctx.save()
 
-    // Building color based on type and interactability
+    // Building proximity for interactivity
     const isNearPlayer = playerPosition && 
       Math.abs(bx - playerPosition.x) < 100 && 
       Math.abs(by - playerPosition.y) < 100
 
-    let buildingColor = this.getBuildingColor(building.type)
-    if (building.interactive && isNearPlayer) {
-      buildingColor = this.lightenColor(buildingColor)
+    // Enhanced building colors based on district/type
+    const buildingConfigs = {
+      tower: {
+        baseColor: '#1a1a2e',
+        accentColor: '#00ffff',
+        windowColor: '#00aaff',
+        glowIntensity: 0.8
+      },
+      office: {
+        baseColor: '#2a2a3e',
+        accentColor: '#ff00ff',
+        windowColor: '#aa88ff',
+        glowIntensity: 0.6
+      },
+      apartment: {
+        baseColor: '#3a2a2a',
+        accentColor: '#ffaa00',
+        windowColor: '#ffdd88',
+        glowIntensity: 0.4
+      },
+      warehouse: {
+        baseColor: '#2a3a2a',
+        accentColor: '#88ff00',
+        windowColor: '#aaffaa',
+        glowIntensity: 0.3
+      },
+      club: {
+        baseColor: '#4a1a4a',
+        accentColor: '#ff00ff',
+        windowColor: '#ff88ff',
+        glowIntensity: 1.0
+      }
     }
 
-    // Draw building walls (isometric cube effect)
-    this.drawBuildingWalls(basePos, topPos, buildingWidth, buildingDepth, buildingColor, h3d)
+    const config = buildingConfigs[building.type as keyof typeof buildingConfigs] || {
+      baseColor: '#2a2a2a',
+      accentColor: '#00ffff',
+      windowColor: '#88aaff',
+      glowIntensity: 0.5
+    }
+
+    // Highlight interactive buildings
+    if (building.interactive && isNearPlayer) {
+      config.glowIntensity *= 1.5
+    }
+
+    // Draw enhanced building walls with cyberpunk styling
+    this.drawEnhancedBuildingWalls(basePos, topPos, buildingWidth, buildingDepth, config, h3d)
     
-    // Add windows and details
-    this.drawBuildingWindows3D(basePos, { x: buildingWidth, y: buildingDepth }, building, h3d)
+    // Add detailed windows with neon glow
+    this.drawCyberpunkWindows(basePos, topPos, { x: buildingWidth, y: buildingDepth }, building, h3d, config)
     
-    // Add neon signs for interactive buildings
+    // Add holographic signs and advertisements
+    if (building.type === 'tower' || building.type === 'office') {
+      this.drawHolographicSign(topPos, buildingWidth, building)
+    }
+    
+    // Add neon edge lighting
+    this.drawBuildingEdgeLighting(basePos, topPos, buildingWidth, buildingDepth, config)
+    
+    // Interactive building indicator
     if (building.interactive) {
-      this.drawNeonSign(basePos, buildingWidth, building.type)
+      this.drawInteractiveIndicator(basePos, buildingWidth, buildingDepth, isNearPlayer)
     }
 
     this.ctx.restore()
@@ -380,6 +520,206 @@ export class IsometricRenderer {
     this.ctx.strokeStyle = 'rgba(255,255,255,0.2)'
     this.ctx.lineWidth = 1
     this.ctx.stroke()
+  }
+
+  private drawEnhancedBuildingWalls(basePos: any, topPos: any, width: number, depth: number, config: any, height: number) {
+    // Create gradient for building faces
+    const leftGradient = this.ctx.createLinearGradient(
+      basePos.x - width / 2, basePos.y,
+      basePos.x - width / 2, topPos.y
+    )
+    leftGradient.addColorStop(0, this.darkenColor(config.baseColor, 0.6))
+    leftGradient.addColorStop(0.5, config.baseColor)
+    leftGradient.addColorStop(1, this.lightenColor(config.baseColor))
+
+    // Left wall with gradient
+    this.ctx.fillStyle = leftGradient
+    this.ctx.beginPath()
+    this.ctx.moveTo(basePos.x - width / 2, basePos.y)
+    this.ctx.lineTo(topPos.x - width / 2, topPos.y)
+    this.ctx.lineTo(topPos.x, topPos.y - depth / 4)
+    this.ctx.lineTo(basePos.x, basePos.y - depth / 4)
+    this.ctx.closePath()
+    this.ctx.fill()
+
+    // Right wall with different lighting
+    const rightGradient = this.ctx.createLinearGradient(
+      basePos.x, basePos.y,
+      basePos.x, topPos.y
+    )
+    rightGradient.addColorStop(0, this.darkenColor(config.baseColor, 0.4))
+    rightGradient.addColorStop(0.5, this.darkenColor(config.baseColor, 0.7))
+    rightGradient.addColorStop(1, config.baseColor)
+
+    this.ctx.fillStyle = rightGradient
+    this.ctx.beginPath()
+    this.ctx.moveTo(basePos.x, basePos.y - depth / 4)
+    this.ctx.lineTo(topPos.x, topPos.y - depth / 4)
+    this.ctx.lineTo(topPos.x + width / 2, topPos.y)
+    this.ctx.lineTo(basePos.x + width / 2, basePos.y)
+    this.ctx.closePath()
+    this.ctx.fill()
+
+    // Top face with tech pattern
+    this.ctx.fillStyle = this.lightenColor(config.baseColor, 1.3)
+    this.ctx.beginPath()
+    this.ctx.moveTo(topPos.x - width / 2, topPos.y)
+    this.ctx.lineTo(topPos.x, topPos.y - depth / 4)
+    this.ctx.lineTo(topPos.x + width / 2, topPos.y)
+    this.ctx.lineTo(topPos.x, topPos.y + depth / 4)
+    this.ctx.closePath()
+    this.ctx.fill()
+
+    // Add tech panel lines on top
+    this.ctx.strokeStyle = config.accentColor
+    this.ctx.globalAlpha = 0.3
+    this.ctx.lineWidth = 1
+    for (let i = 0; i < 3; i++) {
+      const offset = (i - 1) * width / 4
+      this.ctx.beginPath()
+      this.ctx.moveTo(topPos.x + offset - width / 8, topPos.y - depth / 8)
+      this.ctx.lineTo(topPos.x + offset + width / 8, topPos.y + depth / 8)
+      this.ctx.stroke()
+    }
+    this.ctx.globalAlpha = 1
+  }
+
+  private drawCyberpunkWindows(basePos: any, topPos: any, size: any, building: any, height: number, config: any) {
+    const windowSize = 4 * this.camera.zoom
+    const windowSpacing = 8 * this.camera.zoom
+    const floorsCount = Math.floor(height)
+    
+    // Windows on left wall
+    for (let floor = 0; floor < floorsCount; floor++) {
+      const floorY = basePos.y - (floor / floorsCount) * (basePos.y - topPos.y)
+      
+      for (let window = 0; window < Math.floor(size.x / windowSpacing) - 1; window++) {
+        const windowX = basePos.x - size.x / 2 + windowSpacing + window * windowSpacing
+        const isLit = Math.random() > 0.3
+        
+        if (isLit) {
+          // Window glow effect
+          this.ctx.shadowColor = config.windowColor
+          this.ctx.shadowBlur = 8 * config.glowIntensity
+          this.ctx.fillStyle = config.windowColor
+        } else {
+          this.ctx.shadowBlur = 0
+          this.ctx.fillStyle = '#0a0a0f'
+        }
+        
+        this.ctx.fillRect(
+          windowX - windowSize / 2,
+          floorY - windowSize / 2,
+          windowSize,
+          windowSize
+        )
+      }
+    }
+    
+    // Windows on right wall (darker side)
+    for (let floor = 0; floor < floorsCount; floor++) {
+      const floorY = basePos.y - (floor / floorsCount) * (basePos.y - topPos.y)
+      
+      for (let window = 0; window < Math.floor(size.y / windowSpacing) - 1; window++) {
+        const windowOffset = basePos.x + windowSpacing + window * windowSpacing / 2
+        const isLit = Math.random() > 0.5
+        
+        if (isLit) {
+          this.ctx.shadowColor = config.windowColor
+          this.ctx.shadowBlur = 6 * config.glowIntensity
+          this.ctx.fillStyle = this.darkenColor(config.windowColor, 0.7)
+        } else {
+          this.ctx.shadowBlur = 0
+          this.ctx.fillStyle = '#050508'
+        }
+        
+        this.ctx.fillRect(
+          windowOffset - windowSize / 2,
+          floorY - windowSize / 2 - window * 2,
+          windowSize,
+          windowSize
+        )
+      }
+    }
+    
+    this.ctx.shadowBlur = 0
+  }
+
+  private drawHolographicSign(topPos: any, width: number, building: any) {
+    const signTexts = [
+      'NEXUS CORP', 'CYBER TECH', 'NEON DREAMS', 
+      'DATA FLOW', 'QUANTUM NET', 'SYNTH LIFE'
+    ]
+    const text = signTexts[Math.floor(Math.abs(building.id.charCodeAt(0)) % signTexts.length)]
+    
+    this.ctx.save()
+    this.ctx.font = `${8 * this.camera.zoom}px monospace`
+    this.ctx.textAlign = 'center'
+    
+    // Holographic effect with multiple layers
+    const colors = ['#00ffff', '#ff00ff', '#ffff00']
+    colors.forEach((color, i) => {
+      this.ctx.globalAlpha = 0.6 - i * 0.2
+      this.ctx.fillStyle = color
+      this.ctx.fillText(
+        text,
+        topPos.x + (i - 1) * 2,
+        topPos.y - width / 2 - 10 - i * 2
+      )
+    })
+    
+    this.ctx.restore()
+  }
+
+  private drawBuildingEdgeLighting(basePos: any, topPos: any, width: number, depth: number, config: any) {
+    this.ctx.strokeStyle = config.accentColor
+    this.ctx.lineWidth = 2
+    this.ctx.shadowColor = config.accentColor
+    this.ctx.shadowBlur = 10 * config.glowIntensity
+    this.ctx.globalAlpha = 0.8
+    
+    // Vertical edges
+    this.ctx.beginPath()
+    this.ctx.moveTo(basePos.x - width / 2, basePos.y)
+    this.ctx.lineTo(topPos.x - width / 2, topPos.y)
+    this.ctx.moveTo(basePos.x + width / 2, basePos.y)
+    this.ctx.lineTo(topPos.x + width / 2, topPos.y)
+    this.ctx.moveTo(basePos.x, basePos.y - depth / 4)
+    this.ctx.lineTo(topPos.x, topPos.y - depth / 4)
+    this.ctx.stroke()
+    
+    this.ctx.shadowBlur = 0
+    this.ctx.globalAlpha = 1
+  }
+
+  private drawInteractiveIndicator(basePos: any, width: number, depth: number, isNear: boolean) {
+    if (!isNear) return
+    
+    const pulse = Math.sin(Date.now() * 0.005) * 0.5 + 0.5
+    
+    this.ctx.save()
+    this.ctx.strokeStyle = '#00ff00'
+    this.ctx.lineWidth = 3
+    this.ctx.globalAlpha = pulse
+    this.ctx.shadowColor = '#00ff00'
+    this.ctx.shadowBlur = 20
+    
+    // Draw glowing base outline
+    this.ctx.beginPath()
+    this.ctx.moveTo(basePos.x - width / 2, basePos.y)
+    this.ctx.lineTo(basePos.x, basePos.y - depth / 4)
+    this.ctx.lineTo(basePos.x + width / 2, basePos.y)
+    this.ctx.lineTo(basePos.x, basePos.y + depth / 4)
+    this.ctx.closePath()
+    this.ctx.stroke()
+    
+    // Interactive text
+    this.ctx.font = `${10 * this.camera.zoom}px monospace`
+    this.ctx.textAlign = 'center'
+    this.ctx.fillStyle = '#00ff00'
+    this.ctx.fillText('[E] ENTER', basePos.x, basePos.y + depth / 2 + 20)
+    
+    this.ctx.restore()
   }
 
   private drawBuildingWindows3D(basePos: any, size: any, building: any, height: number) {
@@ -448,8 +788,195 @@ export class IsometricRenderer {
   }
 
   private renderInfrastructure3D(item: any) {
-    if (item.type === 'streetlight') {
-      this.renderStreetlight3D(item)
+    if (!item || !item.position) return
+    
+    const screenPos = this.worldToIso(item.position.x / 50, item.position.y / 50, 0)
+    
+    this.ctx.save()
+    
+    switch (item.type) {
+      case 'streetlight':
+        this.renderEnhancedStreetlight(screenPos, item)
+        break
+      case 'sign':
+        this.renderNeonStreetSign(screenPos, item)
+        break
+      case 'billboard':
+        this.renderHologramBillboard(screenPos, item)
+        break
+      case 'debris':
+        this.renderUrbanDebris(screenPos, item)
+        break
+      default:
+        // Fallback to simple streetlight
+        this.renderStreetlight3D(item)
+    }
+    
+    this.ctx.restore()
+  }
+
+  private renderEnhancedStreetlight(screenPos: any, light: any) {
+    const height = (light.height || 15) * this.camera.zoom
+    const poleWidth = 2 * this.camera.zoom
+    
+    // Light pole with gradient
+    const poleGradient = this.ctx.createLinearGradient(
+      screenPos.x, screenPos.y,
+      screenPos.x, screenPos.y - height
+    )
+    poleGradient.addColorStop(0, '#2a2a3a')
+    poleGradient.addColorStop(0.5, '#3a3a4a')
+    poleGradient.addColorStop(1, '#4a4a5a')
+    
+    this.ctx.fillStyle = poleGradient
+    this.ctx.fillRect(screenPos.x - poleWidth / 2, screenPos.y - height, poleWidth, height)
+    
+    // Tech details
+    this.ctx.strokeStyle = light.lightColor || '#00ffff'
+    this.ctx.lineWidth = 0.5 * this.camera.zoom
+    this.ctx.globalAlpha = 0.6
+    for (let i = 0; i < 3; i++) {
+      const y = screenPos.y - height * (0.2 + i * 0.3)
+      this.ctx.beginPath()
+      this.ctx.moveTo(screenPos.x - poleWidth / 2, y)
+      this.ctx.lineTo(screenPos.x + poleWidth / 2, y)
+      this.ctx.stroke()
+    }
+    this.ctx.globalAlpha = 1
+    
+    // Light fixture
+    const lightColor = light.lightColor || '#ffee88'
+    this.ctx.fillStyle = lightColor
+    this.ctx.shadowColor = lightColor
+    this.ctx.shadowBlur = 20 * this.camera.zoom
+    this.ctx.beginPath()
+    this.ctx.arc(screenPos.x, screenPos.y - height, 6 * this.camera.zoom, 0, Math.PI * 2)
+    this.ctx.fill()
+    
+    // Light pool on ground
+    const poolGradient = this.ctx.createRadialGradient(
+      screenPos.x, screenPos.y,
+      0,
+      screenPos.x, screenPos.y,
+      30 * this.camera.zoom
+    )
+    poolGradient.addColorStop(0, `${lightColor}33`)
+    poolGradient.addColorStop(0.5, `${lightColor}1a`)
+    poolGradient.addColorStop(1, 'transparent')
+    
+    this.ctx.shadowBlur = 0
+    this.ctx.fillStyle = poolGradient
+    this.ctx.beginPath()
+    this.ctx.ellipse(screenPos.x, screenPos.y, 30 * this.camera.zoom, 15 * this.camera.zoom, 0, 0, Math.PI * 2)
+    this.ctx.fill()
+    
+    // Add to light sources
+    this.lightSources.push({
+      x: light.position.x,
+      y: light.position.y,
+      z: light.height || 15,
+      intensity: 0.8,
+      color: lightColor,
+      radius: 150
+    })
+  }
+
+  private renderNeonStreetSign(screenPos: any, sign: any) {
+    const width = (sign.size?.x || 30) * this.camera.zoom
+    const height = (sign.size?.y || 15) * this.camera.zoom
+    const text = sign.text || 'NEON CITY'
+    
+    // Sign backing
+    this.ctx.fillStyle = '#1a1a2a'
+    this.ctx.fillRect(screenPos.x - width / 2, screenPos.y - height, width, height)
+    
+    // Neon effect
+    const neonColors = ['#ff00ff', '#00ffff', '#ffff00']
+    const signColor = neonColors[Math.abs(text.charCodeAt(0)) % 3]
+    
+    this.ctx.strokeStyle = signColor
+    this.ctx.lineWidth = 2 * this.camera.zoom
+    this.ctx.shadowColor = signColor
+    this.ctx.shadowBlur = 15 * this.camera.zoom
+    this.ctx.strokeRect(screenPos.x - width / 2 + 2, screenPos.y - height + 2, width - 4, height - 4)
+    
+    // Neon text
+    this.ctx.font = `bold ${6 * this.camera.zoom}px monospace`
+    this.ctx.textAlign = 'center'
+    this.ctx.textBaseline = 'middle'
+    this.ctx.fillStyle = signColor
+    this.ctx.fillText(text, screenPos.x, screenPos.y - height / 2)
+    
+    this.ctx.shadowBlur = 0
+  }
+
+  private renderHologramBillboard(screenPos: any, billboard: any) {
+    const width = (billboard.size?.x || 40) * this.camera.zoom
+    const height = (billboard.size?.y || 30) * this.camera.zoom
+    const time = Date.now() * 0.001
+    
+    // Holographic display
+    const hologramGradient = this.ctx.createLinearGradient(
+      screenPos.x - width / 2, screenPos.y - height,
+      screenPos.x + width / 2, screenPos.y
+    )
+    hologramGradient.addColorStop(0, 'rgba(0, 255, 255, 0.2)')
+    hologramGradient.addColorStop(0.5, 'rgba(255, 0, 255, 0.3)')
+    hologramGradient.addColorStop(1, 'rgba(0, 255, 255, 0.2)')
+    
+    this.ctx.fillStyle = hologramGradient
+    this.ctx.fillRect(screenPos.x - width / 2, screenPos.y - height, width, height)
+    
+    // Scanlines
+    this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)'
+    this.ctx.lineWidth = 0.5 * this.camera.zoom
+    for (let y = 0; y < height; y += 3 * this.camera.zoom) {
+      const offset = Math.sin(time + y * 0.1) * 2
+      this.ctx.beginPath()
+      this.ctx.moveTo(screenPos.x - width / 2 + offset, screenPos.y - height + y)
+      this.ctx.lineTo(screenPos.x + width / 2 + offset, screenPos.y - height + y)
+      this.ctx.stroke()
+    }
+    
+    // Holographic text
+    this.ctx.font = `${8 * this.camera.zoom}px monospace`
+    this.ctx.textAlign = 'center'
+    this.ctx.fillStyle = '#00ffff'
+    this.ctx.shadowColor = '#00ffff'
+    this.ctx.shadowBlur = 10 * this.camera.zoom
+    this.ctx.globalAlpha = 0.8 + Math.sin(time * 2) * 0.2
+    this.ctx.fillText(billboard.text || 'CYBER CORP', screenPos.x, screenPos.y - height / 2)
+    this.ctx.globalAlpha = 1
+    this.ctx.shadowBlur = 0
+  }
+
+  private renderUrbanDebris(screenPos: any, debris: any) {
+    const size = (debris.size || 4) * this.camera.zoom
+    const type = debris.debrisType || 'trash'
+    
+    if (type === 'trash') {
+      // Trash and waste
+      this.ctx.fillStyle = '#2a2a2a'
+      this.ctx.fillRect(screenPos.x - size, screenPos.y - size / 2, size * 2, size)
+      
+      // Toxic glow
+      if (Math.random() < 0.3) {
+        this.ctx.fillStyle = '#00ff00'
+        this.ctx.shadowColor = '#00ff00'
+        this.ctx.shadowBlur = 5 * this.camera.zoom
+        this.ctx.fillRect(screenPos.x, screenPos.y - size / 4, size / 3, size / 4)
+        this.ctx.shadowBlur = 0
+      }
+    } else {
+      // Scrap metal
+      this.ctx.fillStyle = '#3a3a4a'
+      this.ctx.beginPath()
+      this.ctx.moveTo(screenPos.x - size, screenPos.y)
+      this.ctx.lineTo(screenPos.x + size / 2, screenPos.y - size / 2)
+      this.ctx.lineTo(screenPos.x + size, screenPos.y)
+      this.ctx.lineTo(screenPos.x, screenPos.y + size / 3)
+      this.ctx.closePath()
+      this.ctx.fill()
     }
   }
 
@@ -526,40 +1053,162 @@ export class IsometricRenderer {
     this.addToRenderQueue(depth, () => {
       this.ctx.save()
       
-      // Player character (cyberpunk style)
-      const size = 12 * this.camera.zoom
+      // Enhanced isometric cyberpunk character
+      const scale = this.camera.zoom
+      const bodyHeight = 24 * scale
+      const bodyWidth = 16 * scale
       
-      // Body
-      this.ctx.fillStyle = '#00aaff'
+      // Calculate player facing direction (if available)
+      const direction = player.direction || { x: 0, y: 1 } // Default facing south
+      const isFlipped = direction.x < 0
+      
+      // Shadow
+      this.ctx.fillStyle = 'rgba(0, 0, 0, 0.4)'
       this.ctx.beginPath()
-      this.ctx.arc(screenPos.x, screenPos.y, size, 0, Math.PI * 2)
+      this.ctx.ellipse(screenPos.x, screenPos.y + bodyHeight / 3, bodyWidth / 2, bodyWidth / 4, 0, 0, Math.PI * 2)
       this.ctx.fill()
       
-      // Cyber glow effect
-      this.ctx.shadowColor = '#00aaff'
-      this.ctx.shadowBlur = 10
-      this.ctx.fillStyle = '#ffffff'
+      // Legs (cyber pants)
+      const legOffset = 3 * scale
+      this.ctx.fillStyle = '#1a1a2e'
+      // Left leg
+      this.ctx.fillRect(screenPos.x - legOffset - 2 * scale, screenPos.y, 4 * scale, 10 * scale)
+      // Right leg  
+      this.ctx.fillRect(screenPos.x + legOffset - 2 * scale, screenPos.y + 2 * scale, 4 * scale, 8 * scale)
+      
+      // Cyber boots with neon trim
+      this.ctx.fillStyle = '#2a2a3a'
+      this.ctx.fillRect(screenPos.x - legOffset - 2.5 * scale, screenPos.y + 8 * scale, 5 * scale, 4 * scale)
+      this.ctx.fillRect(screenPos.x + legOffset - 2.5 * scale, screenPos.y + 8 * scale, 5 * scale, 4 * scale)
+      // Neon boot trim
+      this.ctx.fillStyle = '#00ffff'
+      this.ctx.fillRect(screenPos.x - legOffset - 2 * scale, screenPos.y + 10 * scale, 4 * scale, 1 * scale)
+      this.ctx.fillRect(screenPos.x + legOffset - 2 * scale, screenPos.y + 10 * scale, 4 * scale, 1 * scale)
+      
+      // Body/Torso (cyberpunk jacket)
+      const jacketGradient = this.ctx.createLinearGradient(
+        screenPos.x - bodyWidth / 2,
+        screenPos.y - bodyHeight / 3,
+        screenPos.x + bodyWidth / 2,
+        screenPos.y + bodyHeight / 4
+      )
+      jacketGradient.addColorStop(0, '#2a3a4a')
+      jacketGradient.addColorStop(0.5, '#1a2a3a')
+      jacketGradient.addColorStop(1, '#0a1a2a')
+      
+      this.ctx.fillStyle = jacketGradient
       this.ctx.beginPath()
-      this.ctx.arc(screenPos.x, screenPos.y, size / 2, 0, Math.PI * 2)
+      this.ctx.moveTo(screenPos.x - bodyWidth / 3, screenPos.y)
+      this.ctx.lineTo(screenPos.x - bodyWidth / 2, screenPos.y - bodyHeight / 4)
+      this.ctx.lineTo(screenPos.x - bodyWidth / 3, screenPos.y - bodyHeight / 2)
+      this.ctx.lineTo(screenPos.x + bodyWidth / 3, screenPos.y - bodyHeight / 2)
+      this.ctx.lineTo(screenPos.x + bodyWidth / 2, screenPos.y - bodyHeight / 4)
+      this.ctx.lineTo(screenPos.x + bodyWidth / 3, screenPos.y)
+      this.ctx.closePath()
       this.ctx.fill()
       
-      // Player name
+      // Jacket neon accents
+      this.ctx.strokeStyle = '#00ffff'
+      this.ctx.lineWidth = 1 * scale
+      this.ctx.shadowColor = '#00ffff'
+      this.ctx.shadowBlur = 5 * scale
+      this.ctx.beginPath()
+      this.ctx.moveTo(screenPos.x - bodyWidth / 3, screenPos.y - bodyHeight / 3)
+      this.ctx.lineTo(screenPos.x - bodyWidth / 3, screenPos.y)
+      this.ctx.moveTo(screenPos.x + bodyWidth / 3, screenPos.y - bodyHeight / 3)
+      this.ctx.lineTo(screenPos.x + bodyWidth / 3, screenPos.y)
+      this.ctx.stroke()
       this.ctx.shadowBlur = 0
-      this.ctx.font = `${8 * this.camera.zoom}px monospace`
-      this.ctx.textAlign = 'center'
+      
+      // Arms
+      const armOffset = isFlipped ? -1 : 1
+      this.ctx.fillStyle = '#2a3a4a'
+      // Left arm
+      this.ctx.save()
+      this.ctx.translate(screenPos.x - bodyWidth / 2.5, screenPos.y - bodyHeight / 3)
+      this.ctx.rotate(-0.3 * armOffset)
+      this.ctx.fillRect(0, 0, 3 * scale, 10 * scale)
+      this.ctx.restore()
+      // Right arm (with weapon)
+      this.ctx.save()
+      this.ctx.translate(screenPos.x + bodyWidth / 2.5, screenPos.y - bodyHeight / 3)
+      this.ctx.rotate(0.5 * armOffset)
+      this.ctx.fillRect(-3 * scale, 0, 3 * scale, 10 * scale)
+      // Cyber weapon in hand
+      this.ctx.fillStyle = '#4a4a5a'
+      this.ctx.fillRect(-2 * scale, 8 * scale, 4 * scale, 6 * scale)
+      // Weapon glow
+      this.ctx.fillStyle = '#ff4444'
+      this.ctx.shadowColor = '#ff4444'
+      this.ctx.shadowBlur = 8 * scale
+      this.ctx.fillRect(-1 * scale, 10 * scale, 2 * scale, 2 * scale)
+      this.ctx.restore()
+      
+      // Head
+      this.ctx.shadowBlur = 0
+      this.ctx.fillStyle = '#d4a574'
+      this.ctx.beginPath()
+      this.ctx.arc(screenPos.x, screenPos.y - bodyHeight / 1.8, 5 * scale, 0, Math.PI * 2)
+      this.ctx.fill()
+      
+      // Cyberpunk hair/visor
+      this.ctx.fillStyle = '#1a1a1a'
+      this.ctx.beginPath()
+      this.ctx.arc(screenPos.x, screenPos.y - bodyHeight / 1.8, 5 * scale, Math.PI * 1.2, Math.PI * 2.2)
+      this.ctx.fill()
+      
+      // Cyber visor/eyes
+      this.ctx.fillStyle = '#00ffff'
+      this.ctx.shadowColor = '#00ffff'
+      this.ctx.shadowBlur = 10 * scale
+      this.ctx.fillRect(screenPos.x - 4 * scale, screenPos.y - bodyHeight / 1.8 - scale, 8 * scale, 2 * scale)
       this.ctx.fillStyle = '#ffffff'
-      this.ctx.fillText(player.username || 'Player', screenPos.x, screenPos.y - size - 8)
+      this.ctx.fillRect(screenPos.x - 3 * scale, screenPos.y - bodyHeight / 1.8 - 0.5 * scale, 6 * scale, 1 * scale)
+      this.ctx.shadowBlur = 0
+      
+      // Player outline glow for visibility
+      this.ctx.strokeStyle = '#00ffff'
+      this.ctx.lineWidth = 1.5 * scale
+      this.ctx.globalAlpha = 0.5
+      this.ctx.shadowColor = '#00ffff'
+      this.ctx.shadowBlur = 15 * scale
+      this.ctx.beginPath()
+      this.ctx.moveTo(screenPos.x - bodyWidth / 2, screenPos.y + bodyHeight / 3)
+      this.ctx.lineTo(screenPos.x - bodyWidth / 2, screenPos.y - bodyHeight / 2)
+      this.ctx.lineTo(screenPos.x + bodyWidth / 2, screenPos.y - bodyHeight / 2)
+      this.ctx.lineTo(screenPos.x + bodyWidth / 2, screenPos.y + bodyHeight / 3)
+      this.ctx.stroke()
+      this.ctx.globalAlpha = 1
+      this.ctx.shadowBlur = 0
+      
+      // Player name tag
+      this.ctx.fillStyle = 'rgba(0, 0, 0, 0.7)'
+      const nameWidth = (player.username?.length || 6) * 4 * scale
+      this.ctx.fillRect(screenPos.x - nameWidth / 2, screenPos.y - bodyHeight - 12 * scale, nameWidth, 10 * scale)
+      
+      this.ctx.font = `${7 * scale}px monospace`
+      this.ctx.textAlign = 'center'
+      this.ctx.fillStyle = '#00ff88'
+      this.ctx.fillText(player.username || 'Player', screenPos.x, screenPos.y - bodyHeight - 5 * scale)
       
       // Health bar
-      const barWidth = 20 * this.camera.zoom
-      const barHeight = 3 * this.camera.zoom
+      const barWidth = 30 * scale
+      const barHeight = 3 * scale
       const healthPercent = (player.health || 100) / 100
       
-      this.ctx.fillStyle = '#444444'
-      this.ctx.fillRect(screenPos.x - barWidth / 2, screenPos.y + size + 5, barWidth, barHeight)
+      // Health bar background
+      this.ctx.fillStyle = 'rgba(0, 0, 0, 0.6)'
+      this.ctx.fillRect(screenPos.x - barWidth / 2, screenPos.y + bodyHeight / 2 + 5 * scale, barWidth, barHeight)
       
-      this.ctx.fillStyle = healthPercent > 0.5 ? '#00ff00' : healthPercent > 0.25 ? '#ffff00' : '#ff0000'
-      this.ctx.fillRect(screenPos.x - barWidth / 2, screenPos.y + size + 5, barWidth * healthPercent, barHeight)
+      // Health bar fill
+      const healthColor = healthPercent > 0.5 ? '#00ff00' : healthPercent > 0.25 ? '#ffff00' : '#ff0000'
+      this.ctx.fillStyle = healthColor
+      this.ctx.fillRect(screenPos.x - barWidth / 2, screenPos.y + bodyHeight / 2 + 5 * scale, barWidth * healthPercent, barHeight)
+      
+      // Health bar border
+      this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)'
+      this.ctx.lineWidth = 0.5 * scale
+      this.ctx.strokeRect(screenPos.x - barWidth / 2, screenPos.y + bodyHeight / 2 + 5 * scale, barWidth, barHeight)
       
       this.ctx.restore()
     })
@@ -687,27 +1336,91 @@ export class IsometricRenderer {
 
   private renderLighting() {
     this.ctx.save()
+    
+    // First: Apply ambient cyberpunk atmosphere
+    this.ctx.globalCompositeOperation = 'multiply'
+    const ambientGradient = this.ctx.createLinearGradient(0, 0, 0, this.canvas.height)
+    ambientGradient.addColorStop(0, 'rgba(20, 10, 40, 0.7)') // Dark purple top
+    ambientGradient.addColorStop(0.5, 'rgba(30, 15, 50, 0.5)')
+    ambientGradient.addColorStop(1, 'rgba(40, 20, 60, 0.3)') // Lighter bottom
+    this.ctx.fillStyle = ambientGradient
+    this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height)
+    
+    // Second: Additive neon light sources
     this.ctx.globalCompositeOperation = 'screen'
     
     this.lightSources.forEach(light => {
       const screenPos = this.worldToIso(light.x / 50, light.y / 50, light.z / 50)
       const radius = light.radius * this.camera.zoom
       
-      const gradient = this.ctx.createRadialGradient(
-        screenPos.x, screenPos.y, 0,
-        screenPos.x, screenPos.y, radius
-      )
+      // Multi-layer glow for neon effect
+      for (let layer = 0; layer < 2; layer++) {
+        const layerRadius = radius * (1 + layer * 0.5)
+        const layerAlpha = light.intensity * (1 - layer * 0.4)
+        
+        const gradient = this.ctx.createRadialGradient(
+          screenPos.x, screenPos.y, 0,
+          screenPos.x, screenPos.y, layerRadius
+        )
+        
+        // Create color with proper alpha blending
+        const alpha1 = Math.floor(layerAlpha * 200).toString(16).padStart(2, '0')
+        const alpha2 = Math.floor(layerAlpha * 100).toString(16).padStart(2, '0')
+        const alpha3 = Math.floor(layerAlpha * 30).toString(16).padStart(2, '0')
+        
+        gradient.addColorStop(0, `${light.color}${alpha1}`)
+        gradient.addColorStop(0.5, `${light.color}${alpha2}`)
+        gradient.addColorStop(1, `${light.color}${alpha3}`)
+        
+        this.ctx.fillStyle = gradient
+        this.ctx.beginPath()
+        this.ctx.arc(screenPos.x, screenPos.y, layerRadius, 0, Math.PI * 2)
+        this.ctx.fill()
+      }
       
-      gradient.addColorStop(0, `${light.color}${Math.floor(light.intensity * 255).toString(16).padStart(2, '0')}`)
-      gradient.addColorStop(1, `${light.color}00`)
-      
-      this.ctx.fillStyle = gradient
-      this.ctx.beginPath()
-      this.ctx.arc(screenPos.x, screenPos.y, radius, 0, Math.PI * 2)
-      this.ctx.fill()
+      // Bright core for strong lights
+      if (light.intensity > 0.7) {
+        this.ctx.fillStyle = `rgba(255, 255, 255, ${light.intensity * 0.2})`
+        this.ctx.beginPath()
+        this.ctx.arc(screenPos.x, screenPos.y, 3 * this.camera.zoom, 0, Math.PI * 2)
+        this.ctx.fill()
+      }
     })
     
+    // Third: Atmospheric effects
+    this.renderCyberpunkAtmosphere()
+    
     this.ctx.restore()
+  }
+
+  private renderCyberpunkAtmosphere() {
+    const time = Date.now() * 0.0001
+    
+    // Subtle animated mist
+    this.ctx.globalCompositeOperation = 'screen'
+    this.ctx.globalAlpha = 0.1
+    
+    const mistGradient = this.ctx.createLinearGradient(
+      0, this.canvas.height * (0.5 + Math.sin(time) * 0.1),
+      this.canvas.width, this.canvas.height
+    )
+    mistGradient.addColorStop(0, 'rgba(100, 200, 255, 0.1)')
+    mistGradient.addColorStop(0.5, 'rgba(255, 100, 200, 0.05)')
+    mistGradient.addColorStop(1, 'rgba(200, 100, 255, 0.1)')
+    
+    this.ctx.fillStyle = mistGradient
+    this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height)
+    
+    // Animated rain/ash particles
+    this.ctx.globalAlpha = 0.4
+    this.ctx.fillStyle = 'rgba(150, 180, 200, 0.6)'
+    for (let i = 0; i < 30; i++) {
+      const x = (i * 37 + time * 150) % this.canvas.width
+      const y = (i * 53 + time * 300) % this.canvas.height
+      this.ctx.fillRect(x, y, 1, 3)
+    }
+    
+    this.ctx.globalAlpha = 1
   }
 
   private clearLights() {
