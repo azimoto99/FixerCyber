@@ -63,7 +63,7 @@ class ApiService {
         // Non-JSON successful response
         const text = await response.text()
         if (!text.trim()) {
-          return {} // Return empty object for empty responses
+          return {} as T // Return empty object for empty responses with proper typing
         }
         throw new Error('Expected JSON response but received: ' + contentType)
       }
