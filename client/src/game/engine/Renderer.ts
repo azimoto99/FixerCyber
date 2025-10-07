@@ -29,16 +29,12 @@ export class Renderer {
   clear() {
     this.time += 16 // ~60fps
     
-    // Cyberpunk dark background with subtle gradient
-    const gradient = this.ctx.createRadialGradient(
-      this.canvas.width / 2, this.canvas.height / 2, 0,
-      this.canvas.width / 2, this.canvas.height / 2, Math.max(this.canvas.width, this.canvas.height)
-    )
-    gradient.addColorStop(0, '#0a0a0a')
-    gradient.addColorStop(1, '#050505')
-    
-    this.ctx.fillStyle = gradient
+    // Realistic city ground color - concrete/asphalt
+    this.ctx.fillStyle = '#454545' // Dark gray asphalt/concrete
     this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height)
+    
+    // Add subtle texture variation to ground
+    this.drawGroundTexture()
     
     // Clear render queue
     this.renderQueue = []
@@ -50,8 +46,8 @@ export class Renderer {
   renderWorld(worldState: any, playerPosition?: {x: number, y: number}) {
     if (!worldState) return
 
-    // Draw animated cyberpunk grid
-    this.drawAnimatedGrid()
+    // Draw realistic city ground
+    this.drawCityGround()
     
     // Draw world chunks (with viewport culling)
     if (worldState.chunks) {
@@ -125,49 +121,55 @@ export class Renderer {
     this.drawScanLines()
   }
 
-  private drawAnimatedGrid() {
-    const gridSize = 20 * this.camera.zoom
-    const offsetX = this.camera.x % gridSize
-    const offsetY = this.camera.y % gridSize
-    
-    // Animated grid opacity
-    const pulseOpacity = 0.05 + Math.sin(this.time * 0.001) * 0.03
-    this.ctx.strokeStyle = `rgba(0, 255, 136, ${pulseOpacity})`
-    this.ctx.lineWidth = 1
+  private drawCityGround() {
+    // Draw subtle urban ground details - no bright grid!
+    this.drawSubtleGroundPattern()
+  }
 
-    // Vertical lines
-    for (let x = -offsetX; x < this.canvas.width + gridSize; x += gridSize) {
+  private drawGroundTexture() {
+    // Add very subtle texture variation to make ground look more realistic
+    this.ctx.save()
+    this.ctx.globalAlpha = 0.1
+    
+    for (let i = 0; i < 100; i++) {
+      const x = Math.random() * this.canvas.width
+      const y = Math.random() * this.canvas.height
+      const size = 1 + Math.random() * 2
+      
+      this.ctx.fillStyle = Math.random() < 0.5 ? '#3a3a3a' : '#505050'
+      this.ctx.fillRect(x, y, size, size)
+    }
+    
+    this.ctx.restore()
+  }
+
+  private drawSubtleGroundPattern() {
+    // Very subtle ground pattern - barely visible
+    const patternSize = 100 * this.camera.zoom
+    const offsetX = this.camera.x % patternSize
+    const offsetY = this.camera.y % patternSize
+    
+    this.ctx.save()
+    this.ctx.globalAlpha = 0.05
+    this.ctx.strokeStyle = '#3a3a3a'
+    this.ctx.lineWidth = 0.5
+    
+    // Very subtle pattern lines
+    for (let x = -offsetX; x < this.canvas.width + patternSize; x += patternSize) {
       this.ctx.beginPath()
       this.ctx.moveTo(x, 0)
       this.ctx.lineTo(x, this.canvas.height)
       this.ctx.stroke()
     }
-
-    // Horizontal lines
-    for (let y = -offsetY; y < this.canvas.height + gridSize; y += gridSize) {
+    
+    for (let y = -offsetY; y < this.canvas.height + patternSize; y += patternSize) {
       this.ctx.beginPath()
       this.ctx.moveTo(0, y)
       this.ctx.lineTo(this.canvas.width, y)
       this.ctx.stroke()
     }
     
-    // Major grid lines (every 5th line)
-    this.ctx.strokeStyle = `rgba(0, 255, 136, ${pulseOpacity * 2})`
-    this.ctx.lineWidth = 1.5
-    
-    for (let x = -offsetX; x < this.canvas.width + gridSize; x += gridSize * 5) {
-      this.ctx.beginPath()
-      this.ctx.moveTo(x, 0)
-      this.ctx.lineTo(x, this.canvas.height)
-      this.ctx.stroke()
-    }
-    
-    for (let y = -offsetY; y < this.canvas.height + gridSize; y += gridSize * 5) {
-      this.ctx.beginPath()
-      this.ctx.moveTo(0, y)
-      this.ctx.lineTo(this.canvas.width, y)
-      this.ctx.stroke()
-    }
+    this.ctx.restore()
   }
 
   private renderChunk(chunk: any, playerPosition?: {x: number, y: number}) {
@@ -264,14 +266,16 @@ export class Renderer {
     this.ctx.lineWidth = 2
     this.ctx.strokeRect(screenPos.x, screenPos.y - offsetY, screenSize.x, screenSize.y)
     
-    // Hackable building glow effect
+    // Hackable building subtle indicator
     if (building.hackable) {
       this.ctx.save()
-      this.ctx.shadowColor = '#ff0080'
-      this.ctx.shadowBlur = 15 + Math.sin(this.time * 0.003) * 8
-      this.ctx.strokeStyle = '#ff0080'
-      this.ctx.lineWidth = 3
-      this.ctx.strokeRect(screenPos.x - 2, screenPos.y - offsetY - 2, screenSize.x + 4, screenSize.y + 4)
+      // Much more subtle orange glow instead of bright pink
+      this.ctx.shadowColor = '#ff8800'
+      this.ctx.shadowBlur = 8 + Math.sin(this.time * 0.003) * 3
+      this.ctx.strokeStyle = '#cc6600'  // Muted orange
+      this.ctx.lineWidth = 2
+      this.ctx.globalAlpha = 0.6  // Make it translucent
+      this.ctx.strokeRect(screenPos.x - 1, screenPos.y - offsetY - 1, screenSize.x + 2, screenSize.y + 2)
       this.ctx.restore()
     }
     
@@ -301,13 +305,117 @@ export class Renderer {
   private renderRoad(road: any) {
     const start = this.worldToScreen(road.start)
     const end = this.worldToScreen(road.end)
+    const roadWidth = road.width * this.camera.zoom
 
-    this.ctx.strokeStyle = '#444444'
-    this.ctx.lineWidth = road.width * this.camera.zoom
+    // Draw realistic asphalt road
+    this.ctx.save()
+    
+    // Main road surface - dark asphalt
+    this.ctx.strokeStyle = '#2a2a2a'  // Dark asphalt color
+    this.ctx.lineWidth = roadWidth
+    this.ctx.lineCap = 'butt'
     this.ctx.beginPath()
     this.ctx.moveTo(start.x, start.y)
     this.ctx.lineTo(end.x, end.y)
     this.ctx.stroke()
+    
+    // Road edges/curbs
+    this.ctx.strokeStyle = '#1a1a1a'  // Darker edge
+    this.ctx.lineWidth = roadWidth + 4
+    this.ctx.globalAlpha = 0.5
+    this.ctx.beginPath()
+    this.ctx.moveTo(start.x, start.y)
+    this.ctx.lineTo(end.x, end.y)
+    this.ctx.stroke()
+    
+    this.ctx.restore()
+    
+    // Add lane markings for wider roads
+    if (roadWidth > 30) {
+      this.drawLaneMarkings(start, end, roadWidth, road.type)
+    }
+    
+    // Add sidewalks for main roads
+    if (road.type === 'main' || road.type === 'secondary') {
+      this.drawSidewalks(start, end, roadWidth)
+    }
+  }
+  
+  private drawLaneMarkings(start: {x: number, y: number}, end: {x: number, y: number}, _roadWidth: number, roadType: string) {
+    // Draw center lane markings
+    this.ctx.save()
+    this.ctx.strokeStyle = '#ffff88'  // Yellow lane markings
+    this.ctx.lineWidth = 2
+    
+    if (roadType === 'main') {
+      // Solid double yellow line for main roads
+      this.ctx.setLineDash([])
+      
+      // Calculate perpendicular offset for double lines
+      const dx = end.x - start.x
+      const dy = end.y - start.y
+      const length = Math.sqrt(dx * dx + dy * dy)
+      const offsetX = (dy / length) * 1
+      const offsetY = (-dx / length) * 1
+      
+      // First yellow line
+      this.ctx.beginPath()
+      this.ctx.moveTo(start.x + offsetX, start.y + offsetY)
+      this.ctx.lineTo(end.x + offsetX, end.y + offsetY)
+      this.ctx.stroke()
+      
+      // Second yellow line
+      this.ctx.beginPath()
+      this.ctx.moveTo(start.x - offsetX, start.y - offsetY)
+      this.ctx.lineTo(end.x - offsetX, end.y - offsetY)
+      this.ctx.stroke()
+    } else {
+      // Dashed white line for secondary roads
+      this.ctx.strokeStyle = '#ffffff'
+      this.ctx.setLineDash([10, 10])
+      this.ctx.beginPath()
+      this.ctx.moveTo(start.x, start.y)
+      this.ctx.lineTo(end.x, end.y)
+      this.ctx.stroke()
+    }
+    
+    this.ctx.restore()
+  }
+  
+  private drawSidewalks(start: {x: number, y: number}, end: {x: number, y: number}, roadWidth: number) {
+    this.ctx.save()
+    
+    // Calculate perpendicular direction for sidewalks
+    const dx = end.x - start.x
+    const dy = end.y - start.y
+    const length = Math.sqrt(dx * dx + dy * dy)
+    
+    if (length === 0) {
+      this.ctx.restore()
+      return
+    }
+    
+    const offsetX = (dy / length) * (roadWidth / 2 + 8)
+    const offsetY = (-dx / length) * (roadWidth / 2 + 8)
+    
+    // Sidewalk color - light gray concrete
+    this.ctx.strokeStyle = '#6a6a6a'
+    this.ctx.lineWidth = 6
+    this.ctx.lineCap = 'butt'
+    
+    // Left sidewalk
+    this.ctx.beginPath()
+    this.ctx.moveTo(start.x + offsetX, start.y + offsetY)
+    this.ctx.lineTo(end.x + offsetX, end.y + offsetY)
+    this.ctx.stroke()
+    
+    // Right sidewalk
+    this.ctx.beginPath()
+    this.ctx.moveTo(start.x - offsetX, start.y - offsetY)
+    this.ctx.lineTo(end.x - offsetX, end.y - offsetY)
+    this.ctx.stroke()
+    
+    this.ctx.restore()
   }
 
   private renderNPC(npc: any, playerPosition?: {x: number, y: number}) {
@@ -424,15 +532,16 @@ export class Renderer {
   }
 
   private getNPCColor(type: string): string {
+    // More realistic clothing colors
     const colors = {
-      guard: '#ff0000',
-      civilian: '#ffffff',
-      fixer: '#ff0080',
-      dealer: '#8b5cf6',
-      thug: '#ff6b35',
-      executive: '#00ffff'
+      guard: '#4a4a4a',      // Dark gray uniform
+      civilian: '#6a5a4a',   // Brown/tan civilian clothes  
+      fixer: '#3a3a3a',      // Black/dark gray
+      dealer: '#5a4a3a',     // Dark brown jacket
+      thug: '#4a3a2a',       // Dirty brown clothes
+      executive: '#5a5a5a'   // Gray business suit
     }
-    return colors[type as keyof typeof colors] || '#666666'
+    return colors[type as keyof typeof colors] || '#555555'
   }
 
   // Camera controls
@@ -522,34 +631,34 @@ export class Renderer {
   private getBuildingColor(building: any) {
     const districtColors = {
       corporate: { 
-        fill: '#2a3d66', 
-        outline: '#00ffff', 
-        innerBorder: '#4a6fa5' 
+        fill: '#6a6a6a',        // Light gray concrete
+        outline: '#8a8a8a',     // Lighter gray outline
+        innerBorder: '#5a5a5a'  // Darker gray accent
       },
       residential: { 
-        fill: '#4a4a70', 
-        outline: '#ffffff', 
-        innerBorder: '#6a6a90' 
+        fill: '#7a6a5a',        // Warm brown brick
+        outline: '#9a8a7a',     // Light brown outline  
+        innerBorder: '#6a5a4a'  // Dark brown accent
       },
       industrial: { 
-        fill: '#663d1a', 
-        outline: '#ff6b35', 
-        innerBorder: '#996d4a' 
+        fill: '#5a5a5a',        // Dark gray metal
+        outline: '#7a7a7a',     // Medium gray outline
+        innerBorder: '#4a4a4a'  // Very dark accent
       },
       underground: { 
-        fill: '#2a1f2a', 
-        outline: '#ff0080', 
-        innerBorder: '#4a3f4a' 
+        fill: '#4a4a4a',        // Very dark concrete
+        outline: '#6a6a6a',     // Medium gray outline
+        innerBorder: '#3a3a3a'  // Almost black accent
       },
       wasteland: { 
-        fill: '#4d2f2f', 
-        outline: '#ff4444', 
-        innerBorder: '#6d4f4f' 
+        fill: '#6a5a4a',        // Weathered brown
+        outline: '#8a7a6a',     // Faded brown outline
+        innerBorder: '#5a4a3a'  // Dark weathered accent
       }
     }
     
     return districtColors[building.district as keyof typeof districtColors] || 
-           { fill: '#555555', outline: '#888888', innerBorder: '#777777' }
+           { fill: '#5a5a5a', outline: '#7a7a7a', innerBorder: '#4a4a4a' }
   }
   
   
@@ -599,48 +708,46 @@ export class Renderer {
   private renderStreetlight(screenPos: {x: number, y: number}, light: any) {
     const height = (light.height || 20) * this.camera.zoom * 0.8
     
-    // Streetlight pole
-    this.ctx.strokeStyle = '#666666'
+    // Streetlight pole - realistic metal color
+    this.ctx.strokeStyle = '#555555'
     this.ctx.lineWidth = 3 * this.camera.zoom
     this.ctx.beginPath()
     this.ctx.moveTo(screenPos.x, screenPos.y)
     this.ctx.lineTo(screenPos.x, screenPos.y - height)
     this.ctx.stroke()
     
-    // Light fixture
-    this.ctx.fillStyle = '#444444'
+    // Light fixture - darker metal
+    this.ctx.fillStyle = '#3a3a3a'
     this.ctx.fillRect(screenPos.x - 6, screenPos.y - height - 8, 12, 8)
     
-    // Light glow
-    if (light.lightColor) {
-      this.ctx.save()
-      this.ctx.globalAlpha = 0.3
-      this.ctx.shadowColor = light.lightColor
-      this.ctx.shadowBlur = 20
-      this.ctx.fillStyle = light.lightColor
-      this.ctx.beginPath()
-      this.ctx.arc(screenPos.x, screenPos.y - height - 4, 8, 0, Math.PI * 2)
-      this.ctx.fill()
-      this.ctx.restore()
-    }
+    // Realistic warm street lighting
+    this.ctx.save()
+    this.ctx.globalAlpha = 0.2
+    this.ctx.shadowColor = '#ffa500'  // Warm orange/yellow street light
+    this.ctx.shadowBlur = 15
+    this.ctx.fillStyle = '#ffcc66'  // Warm light color
+    this.ctx.beginPath()
+    this.ctx.arc(screenPos.x, screenPos.y - height - 4, 6, 0, Math.PI * 2)
+    this.ctx.fill()
+    this.ctx.restore()
   }
   
   private renderSign(screenPos: {x: number, y: number}, sign: any) {
     const width = (sign.size?.x || 30) * this.camera.zoom
     const height = (sign.size?.y || 15) * this.camera.zoom
     
-    // Sign background
-    this.ctx.fillStyle = sign.type === 'billboard' ? '#ff0080' : '#333333'
+    // Realistic sign colors
+    this.ctx.fillStyle = sign.type === 'billboard' ? '#4a4a4a' : '#2a2a2a'  // Dark gray backgrounds
     this.ctx.fillRect(screenPos.x - width/2, screenPos.y - height/2, width, height)
     
-    // Sign border
-    this.ctx.strokeStyle = '#ffffff'
+    // Sign border - realistic metal frame
+    this.ctx.strokeStyle = '#6a6a6a'
     this.ctx.lineWidth = 1
     this.ctx.strokeRect(screenPos.x - width/2, screenPos.y - height/2, width, height)
     
-    // Sign text
+    // Sign text - warm white/yellow lighting
     if (sign.text && width > 20) {
-      this.ctx.fillStyle = '#ffffff'
+      this.ctx.fillStyle = '#ffcc88'  // Warm light color instead of pure white
       this.ctx.font = `${Math.max(8, height * 0.4)}px monospace`
       this.ctx.textAlign = 'center'
       this.ctx.textBaseline = 'middle'
@@ -659,27 +766,36 @@ export class Renderer {
   private drawBuildingWindows3D(pos: {x: number, y: number}, size: {x: number, y: number}, building: any, offsetY: number) {
     if (size.x < 30 || size.y < 30) return
     
-    const windowColor = building.hackable ? '#ff0080' : '#ffff88'
-    this.ctx.fillStyle = windowColor
+    // Realistic window colors - warm light from inside
+    const windowColor = building.hackable ? '#ffa500' : '#ffd700'  // Orange or golden light
+    const darkWindow = '#2a2a2a'  // Dark/unlit windows
     
     const windowSize = Math.max(2, 4 * this.camera.zoom)
     const windowSpacing = Math.max(8, 12 * this.camera.zoom)
     
-    // Create window grid
+    // Create window grid with realistic lighting
     for (let x = pos.x + windowSpacing; x < pos.x + size.x - windowSize; x += windowSpacing) {
       for (let y = pos.y - offsetY + windowSpacing; y < pos.y - offsetY + size.y - windowSize; y += windowSpacing) {
-        if (Math.random() > 0.2) { // Most windows are lit
+        const isLit = Math.random() > 0.3  // 70% of windows are lit
+        
+        if (isLit) {
+          // Lit window - warm interior lighting
+          this.ctx.fillStyle = windowColor
           this.ctx.fillRect(x, y, windowSize, windowSize)
           
-          // Add slight glow to windows
-          if (building.district === 'corporate') {
-            this.ctx.save()
-            this.ctx.globalAlpha = 0.3
-            this.ctx.shadowColor = windowColor
-            this.ctx.shadowBlur = 3
-            this.ctx.fillRect(x, y, windowSize, windowSize)
-            this.ctx.restore()
-          }
+          // Window frame
+          this.ctx.strokeStyle = '#4a4a4a'
+          this.ctx.lineWidth = 0.5
+          this.ctx.strokeRect(x, y, windowSize, windowSize)
+        } else {
+          // Dark window
+          this.ctx.fillStyle = darkWindow
+          this.ctx.fillRect(x, y, windowSize, windowSize)
+          
+          // Window frame
+          this.ctx.strokeStyle = '#3a3a3a'
+          this.ctx.lineWidth = 0.5
+          this.ctx.strokeRect(x, y, windowSize, windowSize)
         }
       }
     }

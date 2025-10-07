@@ -154,13 +154,13 @@ export class UISystem {
   private renderCrosshair() {
     const centerX = this.canvas.width / 2
     const centerY = this.canvas.height / 2
-    const pulse = Math.sin(this.time * 0.008) * 0.3 + 0.7
+    const pulse = Math.sin(this.time * 0.008) * 0.2 + 0.8  // Less pulsing
 
     this.ctx.save()
-    this.ctx.strokeStyle = `rgba(0, 255, 255, ${pulse})`
+    this.ctx.strokeStyle = `rgba(255, 255, 255, ${pulse})`  // White instead of cyan
     this.ctx.lineWidth = 2
-    this.ctx.shadowColor = '#00ffff'
-    this.ctx.shadowBlur = 8
+    this.ctx.shadowColor = '#ffffff'
+    this.ctx.shadowBlur = 4  // Less glow
     
     // Dynamic crosshair that expands when moving/shooting
     const spread = 15 // TODO: Make this dynamic based on movement/shooting
@@ -178,7 +178,7 @@ export class UISystem {
     this.ctx.stroke()
     
     // Center dot
-    this.ctx.fillStyle = `rgba(0, 255, 255, ${pulse * 0.8})`
+    this.ctx.fillStyle = `rgba(255, 255, 255, ${pulse * 0.8})`  // White dot
     this.ctx.beginPath()
     this.ctx.arc(centerX, centerY, 2, 0, Math.PI * 2)
     this.ctx.fill()
