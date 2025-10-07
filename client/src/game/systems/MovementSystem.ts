@@ -11,9 +11,9 @@ export class MovementSystem {
   private lastServerUpdate = 0
   private worldSystem: any = null // Reference to WorldSystem for collision detection
   
-  // Movement constants - more responsive
-  private readonly MOVEMENT_SPEED = 300 // pixels per second
-  private readonly ACCELERATION = 2000 // Much faster acceleration
+  // Movement constants - instant response
+  private readonly MOVEMENT_SPEED = 350 // pixels per second - slightly faster
+  private readonly INPUT_DEADZONE = 0.1 // Minimum input threshold to prevent micro-movements
   private readonly MAX_INPUT_BUFFER = 60 // ~1 second at 60fps
   private readonly RECONCILIATION_THRESHOLD = 5 // pixels
   private readonly PLAYER_RADIUS = 15 // Player collision radius
@@ -35,14 +35,14 @@ export class MovementSystem {
     
     // Get current input
     const movementInput = inputManager.getMovementInput()
-    const hasInput = Math.abs(movementInput.x) > 0 || Math.abs(movementInput.y) > 0
+    const hasInput = Math.abs(movementInput.x) > this.INPUT_DEADZONE || Math.abs(movementInput.y) > this.INPUT_DEADZONE
     
     if (hasInput) {
       this.processMovementInput(movementInput, dt)
     }
     
     // Apply movement physics
-    this.updateVelocity(movementInput, dt)
+    this.updateVelocity(movementInput)
     this.updatePosition(dt)
     
     // Clean up old inputs
@@ -72,23 +72,25 @@ export class MovementSystem {
     this.emitMovement(movementInput)
   }
   
-  private updateVelocity(input: { x: number, y: number }, _deltaTime: number) {
-    const hasInput = Math.abs(input.x) > 0 || Math.abs(input.y) > 0
+  private updateVelocity(input: { x: number, y: number }) {
+    const hasInput = Math.abs(input.x) > this.INPUT_DEADZONE || Math.abs(input.y) > this.INPUT_DEADZONE
     
     if (hasInput) {
-      // Direct movement - more responsive
-      this.velocity.x = input.x * this.MOVEMENT_SPEED
-      this.velocity.y = input.y * this.MOVEMENT_SPEED
+      // Normalize input first to ensure consistent speed in all directions
+      let normalizedX = input.x
+      let normalizedY = input.y
+      const inputMagnitude = Math.sqrt(input.x * input.x + input.y * input.y)
       
-      // Normalize diagonal movement so it's not faster
-      const speed = Math.sqrt(this.velocity.x * this.velocity.x + this.velocity.y * this.velocity.y)
-      if (speed > this.MOVEMENT_SPEED) {
-        const scale = this.MOVEMENT_SPEED / speed
-        this.velocity.x *= scale
-        this.velocity.y *= scale
+      if (inputMagnitude > 0) {
+        normalizedX = input.x / inputMagnitude
+        normalizedY = input.y / inputMagnitude
       }
+      
+      // Set velocity directly for instant response
+      this.velocity.x = normalizedX * this.MOVEMENT_SPEED
+      this.velocity.y = normalizedY * this.MOVEMENT_SPEED
     } else {
-      // Quick stop when no input
+      // Instant stop when no input - no lerping or deceleration
       this.velocity.x = 0
       this.velocity.y = 0
     }
@@ -245,12 +247,28 @@ export class MovementSystem {
     let tempVelocity = { x: 0, y: 0 }
     
     inputsToReapply.forEach(inputData => {
-      // Simulate movement for this input
-      const targetVelX = inputData.input.x * this.MOVEMENT_SPEED
-      const targetVelY = inputData.input.y * this.MOVEMENT_SPEED
+      // Simulate movement for this input with direct velocity (no lerping)
+      const hasInput = Math.abs(inputData.input.x) > this.INPUT_DEADZONE || Math.abs(inputData.input.y) > this.INPUT_DEADZONE
       
-      tempVelocity.x = this.lerp(tempVelocity.x, targetVelX, this.ACCELERATION * inputData.deltaTime / this.MOVEMENT_SPEED)
-      tempVelocity.y = this.lerp(tempVelocity.y, targetVelY, this.ACCELERATION * inputData.deltaTime / this.MOVEMENT_SPEED)
+      if (hasInput) {
+        // Normalize input for consistent speed
+        let normalizedX = inputData.input.x
+        let normalizedY = inputData.input.y
+        const inputMagnitude = Math.sqrt(inputData.input.x * inputData.input.x + inputData.input.y * inputData.input.y)
+        
+        if (inputMagnitude > 0) {
+          normalizedX = inputData.input.x / inputMagnitude
+          normalizedY = inputData.input.y / inputMagnitude
+        }
+        
+        // Direct velocity assignment for instant response
+        tempVelocity.x = normalizedX * this.MOVEMENT_SPEED
+        tempVelocity.y = normalizedY * this.MOVEMENT_SPEED
+      } else {
+        // Instant stop
+        tempVelocity.x = 0
+        tempVelocity.y = 0
+      }
       
       tempPosition.x += tempVelocity.x * inputData.deltaTime
       tempPosition.y += tempVelocity.y * inputData.deltaTime
@@ -286,9 +304,6 @@ export class MovementSystem {
     }))
   }
   
-  private lerp(start: number, end: number, factor: number): number {
-    return start + (end - start) * Math.min(1, Math.max(0, factor))
-  }
   
   // Public methods
   getPlayerPosition(): Vector2 {
