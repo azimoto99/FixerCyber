@@ -23,8 +23,14 @@ const app = express()
 const server = createServer(app)
 const io = new Server(server, {
   cors: {
-    origin: process.env.CLIENT_URL || "http://localhost:3000",
-    methods: ["GET", "POST"]
+    origin: [
+      "https://www.fixer.gg",
+      "https://fixer.gg", 
+      "http://localhost:3000",
+      ...(process.env.CLIENT_URL ? [process.env.CLIENT_URL] : [])
+    ],
+    methods: ["GET", "POST"],
+    credentials: true
   }
 })
 
@@ -34,8 +40,15 @@ const prisma = new PrismaClient()
 // Middleware
 app.use(helmet())
 app.use(cors({
-  origin: process.env.CLIENT_URL || "http://localhost:3000",
-  credentials: true
+  origin: [
+    "https://www.fixer.gg",
+    "https://fixer.gg", 
+    "http://localhost:3000",
+    ...(process.env.CLIENT_URL ? [process.env.CLIENT_URL] : [])
+  ],
+  credentials: true,
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"]
 }))
 app.use(express.json())
 app.use(express.urlencoded({ extended: true }))

@@ -16,7 +16,7 @@ export class ContractService {
             { playerId: null },
             { playerId }
           ],
-          status: 'available'
+          status: 'AVAILABLE'
         },
         include: {
           fixer: true
@@ -36,7 +36,7 @@ export class ContractService {
         where: {
           playerId,
           status: {
-            in: ['active', 'in_progress']
+            in: ['ACTIVE', 'IN_PROGRESS']
           }
         },
         include: {
@@ -64,7 +64,7 @@ export class ContractService {
         }
       }
 
-      if (contract.status !== 'available') {
+      if (contract.status !== 'AVAILABLE') {
         return {
           success: false,
           error: 'Contract is not available'
@@ -75,7 +75,7 @@ export class ContractService {
         where: { id: contractId },
         data: {
           playerId,
-          status: 'active'
+          status: 'ACTIVE'
         }
       })
 
@@ -98,7 +98,7 @@ export class ContractService {
         where: {
           id: contractId,
           playerId,
-          status: 'active'
+          status: 'ACTIVE'
         }
       })
 
@@ -113,7 +113,7 @@ export class ContractService {
       await this.prisma.contract.update({
         where: { id: contractId },
         data: {
-          status: 'completed',
+          status: 'COMPLETED',
           completedAt: new Date()
         }
       })
@@ -157,7 +157,7 @@ export class ContractService {
           id: contractId,
           playerId,
           status: {
-            in: ['active', 'in_progress']
+            in: ['ACTIVE', 'IN_PROGRESS']
           }
         }
       })
@@ -172,7 +172,7 @@ export class ContractService {
       await this.prisma.contract.update({
         where: { id: contractId },
         data: {
-          status: 'cancelled',
+          status: 'CANCELLED',
           cancelledAt: new Date()
         }
       })
@@ -199,7 +199,7 @@ export class ContractService {
           targetData: contractData.targetData || {},
           rewardCredits: contractData.rewardCredits || 0,
           timeLimit: contractData.timeLimit || 30,
-          status: 'available',
+          status: 'AVAILABLE',
           description: contractData.description || ''
         }
       })
