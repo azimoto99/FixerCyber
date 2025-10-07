@@ -61,7 +61,7 @@ export class NeuralProgram {
   }
 
   // Install/Uninstall
-  install(player: any): boolean {
+  install(_player: any): boolean {
     if (this.isInstalled) return false
     
     this.isInstalled = true

@@ -16,7 +16,7 @@ class EventEmitter {
     }
   }
 }
-import { Contract, ContractType, ContractStatus, AIFixer } from '../../types/contracts'
+import { Contract, ContractType, ContractStatus } from '../../types/contracts'
 
 export class ContractSystem extends EventEmitter {
   private activeContracts: Map<string, Contract> = new Map()
@@ -49,7 +49,7 @@ export class ContractSystem extends EventEmitter {
 
   private updateContractStatuses() {
     // Update contract statuses based on game state
-    this.activeContracts.forEach((contract, id) => {
+    this.activeContracts.forEach((contract, _id) => {
       if (contract.status === ContractStatus.ACTIVE) {
         this.checkContractCompletion(contract)
       }
@@ -139,22 +139,22 @@ export class ContractSystem extends EventEmitter {
     }
   }
 
-  private checkAssassinationCompletion(contract: Contract) {
+  private checkAssassinationCompletion(_contract: Contract) {
     // Check if target is eliminated
     // This would integrate with combat system
   }
 
-  private checkDataExtractionCompletion(contract: Contract) {
+  private checkDataExtractionCompletion(_contract: Contract) {
     // Check if data has been extracted
     // This would integrate with hacking system
   }
 
-  private checkSabotageCompletion(contract: Contract) {
+  private checkSabotageCompletion(_contract: Contract) {
     // Check if target has been sabotaged
     // This would integrate with world system
   }
 
-  private awardContractRewards(contract: Contract, completionData: any) {
+  private awardContractRewards(contract: Contract, _completionData: any) {
     const rewards = {
       credits: contract.reward.credits,
       items: contract.reward.items || [],

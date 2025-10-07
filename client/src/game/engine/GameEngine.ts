@@ -21,7 +21,7 @@ export class GameEngine {
   private isRunning = false
   private lastTime = 0
   private deltaTime = 0
-  private _fps = 60
+  // private _fps = 60 // Unused for now
   // private frameTime = 1000 / this.fps // Unused variable removed
 
   constructor(canvas: HTMLCanvasElement) {

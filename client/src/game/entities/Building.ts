@@ -30,7 +30,7 @@ export class Building {
   }
 
   // Building interactions
-  canEnter(player: any): boolean {
+  canEnter(_player: any): boolean {
     if (this.isLocked && !this.hackable) {
       return false
     }
@@ -45,7 +45,7 @@ export class Building {
     return true
   }
 
-  exit(player: any): boolean {
+  exit(_player: any): boolean {
     // Handle building exit logic
     return true
   }

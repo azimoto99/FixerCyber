@@ -35,8 +35,8 @@ export class InventorySystem extends EventEmitter {
     this.updateItemStates(deltaTime)
   }
 
-  private updateItemStates(deltaTime: number) {
-    this.inventory.forEach((item, id) => {
+  private updateItemStates(_deltaTime: number) {
+    this.inventory.forEach((item, _id) => {
       if (item.stats.durability !== undefined) {
         // Update durability based on usage
         // This would be called when items are used
@@ -340,12 +340,12 @@ export class InventorySystem extends EventEmitter {
   }
 
   // Missing methods
-  rotateItem(itemId: string): boolean {
+  rotateItem(_itemId: string): boolean {
     // TODO: Implement item rotation logic
     return false
   }
 
-  dropItem(itemId: string): boolean {
+  dropItem(_itemId: string): boolean {
     // TODO: Implement item drop logic
     return false
   }

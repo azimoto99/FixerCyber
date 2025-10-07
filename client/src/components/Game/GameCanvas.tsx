@@ -107,7 +107,7 @@ function drawPlayer(ctx: CanvasRenderingContext2D, player: any) {
   ctx.fillRect(healthX, healthY, (player.health / 100) * healthWidth, healthHeight)
 }
 
-function drawWorld(ctx: CanvasRenderingContext2D, world: any) {
+function drawWorld(_ctx: CanvasRenderingContext2D, _world: any) {
   // TODO: Implement world rendering
   // This will draw buildings, NPCs, other players, etc.
 }

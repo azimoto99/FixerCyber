@@ -57,7 +57,7 @@ export class HackingSystem extends EventEmitter {
 
   private updateHackTargets(deltaTime: number) {
     // Update hackable targets in the world
-    this.hackTargets.forEach((target, id) => {
+    this.hackTargets.forEach((target, _id) => {
       if (target.securityLevel > 0) {
         target.securityLevel = Math.max(0, target.securityLevel - (target.decayRate * deltaTime) / 1000)
       }
@@ -164,27 +164,27 @@ export class HackingSystem extends EventEmitter {
     }
   }
 
-  private applyTerminalHack(target: any, program: any) {
+  private applyTerminalHack(target: any, _program: any) {
     // Extract data, disable security, etc.
     this.emit('dataExtracted', { target, data: this.generateHackData(target) })
   }
 
-  private applyCameraHack(target: any, program: any) {
+  private applyCameraHack(target: any, _program: any) {
     // Disable camera, loop footage, etc.
     this.emit('cameraHacked', { target, effect: 'disabled' })
   }
 
-  private applyDoorHack(target: any, program: any) {
+  private applyDoorHack(target: any, _program: any) {
     // Unlock door, disable security, etc.
     this.emit('doorHacked', { target, effect: 'unlocked' })
   }
 
-  private applyAugmentationHack(target: any, program: any) {
+  private applyAugmentationHack(target: any, _program: any) {
     // Hack player augmentation, cause malfunction, etc.
     this.emit('augmentationHacked', { target, effect: 'malfunction' })
   }
 
-  private applyNetworkHack(target: any, program: any) {
+  private applyNetworkHack(target: any, _program: any) {
     // Access network, steal data, etc.
     this.emit('networkHacked', { target, access: 'gained' })
   }

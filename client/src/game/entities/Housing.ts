@@ -35,7 +35,7 @@ export class Housing {
   }
 
   // Housing management
-  purchase(playerId: string, cost: number): boolean {
+  purchase(playerId: string, _cost: number): boolean {
     if (this.isOccupied) return false
     
     this.ownerId = playerId
@@ -122,7 +122,7 @@ export class Housing {
     return feature ? feature.level : 0
   }
 
-  upgradeFeature(featureType: string, cost: number): boolean {
+  upgradeFeature(featureType: string, _cost: number): boolean {
     const feature = this.features.find(f => f.type === featureType)
     if (!feature) return false
     

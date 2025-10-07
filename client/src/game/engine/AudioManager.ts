@@ -14,14 +14,14 @@ export class AudioManager {
   private setupAudioContext() {
     // Initialize Web Audio API context
     try {
-      const AudioContext = window.AudioContext || (window as any).webkitAudioContext
-      this._audioContext = new AudioContext()
+      // const AudioContext = window.AudioContext || (window as any).webkitAudioContext
+      // this._audioContext = new AudioContext() // Commented out unused variable
     } catch (error) {
       console.warn('Web Audio API not supported:', error)
     }
   }
 
-  private _audioContext: AudioContext | null = null
+  // private _audioContext: AudioContext | null = null // Unused for now
 
   // Sound loading and management
   loadSound(name: string, url: string): Promise<void> {

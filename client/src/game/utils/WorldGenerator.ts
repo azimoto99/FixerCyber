@@ -1,14 +1,14 @@
 // World generation utilities
 import { Vector2 } from './Vector2'
 import { Building } from '../entities/Building'
-import { Item, ItemType, Rarity } from '../entities/Item'
+import { Item, Rarity } from '../entities/Item'
 
 export class WorldGenerator {
   private static readonly CHUNK_SIZE = 1000
-  private static readonly BUILDING_DENSITY = 0.3
-  private static readonly ROAD_DENSITY = 0.1
-  private static readonly NPC_DENSITY = 0.05
-  private static readonly LOOT_DENSITY = 0.02
+  // private static readonly BUILDING_DENSITY = 0.3
+  // private static readonly ROAD_DENSITY = 0.1
+  // private static readonly NPC_DENSITY = 0.05
+  // private static readonly LOOT_DENSITY = 0.02
 
   // Generate a world chunk
   static generateChunk(x: number, y: number, districtType: string): any {

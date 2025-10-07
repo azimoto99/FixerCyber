@@ -42,12 +42,12 @@ export class WorldSystem extends EventEmitter {
     this.worldState.timeOfDay = (this.worldState.timeOfDay + deltaTime / 1000) % 24
   }
 
-  private updateChunks(deltaTime: number) {
+  private updateChunks(_deltaTime: number) {
     // Update chunk loading/unloading
     // Update NPCs, buildings, etc.
   }
 
-  private updatePlayers(deltaTime: number) {
+  private updatePlayers(_deltaTime: number) {
     // Update player positions, states
   }
 

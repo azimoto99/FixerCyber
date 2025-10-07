@@ -50,7 +50,7 @@ export class CombatSystem extends EventEmitter {
     })
   }
 
-  private updateDamageEvents(deltaTime: number) {
+  private updateDamageEvents(_deltaTime: number) {
     // Process damage events
     this.damageEvents.forEach(event => {
       this.processDamageEvent(event)
@@ -58,7 +58,7 @@ export class CombatSystem extends EventEmitter {
     this.damageEvents = []
   }
 
-  private updateCombatState(deltaTime: number) {
+  private updateCombatState(_deltaTime: number) {
     if (this.combatState.inCombat) {
       const timeSinceCombat = Date.now() - this.combatState.combatStartTime
       if (timeSinceCombat > 5000) { // 5 seconds of no combat
@@ -89,7 +89,7 @@ export class CombatSystem extends EventEmitter {
     this.emit('shotFired', { playerId, projectile, weapon })
   }
 
-  private canShoot(playerId: string, weapon: string): boolean {
+  private canShoot(_playerId: string, weapon: string): boolean {
     const now = Date.now()
     const timeSinceLastShot = now - this.combatState.lastShotTime
     const weaponCooldown = this.getWeaponCooldown(weapon)
@@ -173,7 +173,7 @@ export class CombatSystem extends EventEmitter {
     }
   }
 
-  private isFatalDamage(playerId: string, damage: number): boolean {
+  private isFatalDamage(_playerId: string, _damage: number): boolean {
     // This would check player's current health
     // For now, assume any damage can be fatal
     return true
@@ -192,7 +192,7 @@ export class CombatSystem extends EventEmitter {
     })
   }
 
-  private detectCollision(projectile: any): any {
+  private detectCollision(_projectile: any): any {
     // Simple collision detection
     // In a real game, this would use spatial partitioning
     return null

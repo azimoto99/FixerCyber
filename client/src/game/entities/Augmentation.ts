@@ -67,22 +67,22 @@ export class Augmentation {
     return true
   }
 
-  private _checkRequirements(player: any): boolean {
-    // Check level requirement
-    if (this.requirements.level && player.level < this.requirements.level) return false
+  // private _checkRequirements(player: any): boolean {
+  //   // Check level requirement
+  //   if (this.requirements.level && player.level < this.requirements.level) return false
 
-    // Check reputation requirement
-    if (this.requirements.reputation && player.reputation < this.requirements.reputation) return false
+  //   // Check reputation requirement
+  //   if (this.requirements.reputation && player.reputation < this.requirements.reputation) return false
 
-    // Check other augmentations requirement
-    if (this.requirements.augmentations) {
-      for (const augId of this.requirements.augmentations) {
-        if (!player.hasAugmentation(augId)) return false
-      }
-    }
+  //   // Check other augmentations requirement
+  //   if (this.requirements.augmentations) {
+  //     for (const augId of this.requirements.augmentations) {
+  //       if (!player.hasAugmentation(augId)) return false
+  //     }
+  //   }
 
-    return true
-  }
+  //   return true
+  // }
 
   private applyEffects(player: any): void {
     switch (this.category) {

@@ -79,7 +79,7 @@ export class Item {
     return true
   }
 
-  private useWeapon(player: any): boolean {
+  private useWeapon(_player: any): boolean {
     // Weapon usage is handled by combat system
     return true
   }
