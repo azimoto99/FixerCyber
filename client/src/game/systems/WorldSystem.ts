@@ -532,6 +532,132 @@ export class WorldSystem extends EventEmitter {
     return chunksToLoad
   }
   
+  // Collision Detection System
+  isBlocked(position: Vector2): boolean {
+    // Check collision with buildings
+    if (this.isCollidingWithBuildings(position)) {
+      return true
+    }
+    
+    // For now, roads don't block movement
+    // Could add specific blocked areas or walls here
+    
+    return false
+  }
+
+  private isCollidingWithBuildings(position: Vector2): boolean {
+    // Get the chunk this position belongs to
+    const chunkSize = 1000
+    const chunkX = Math.floor(position.x / chunkSize)
+    const chunkY = Math.floor(position.y / chunkSize)
+    const chunkId = `chunk_${chunkX}_${chunkY}`
+    
+    const chunk = this.chunks.get(chunkId)
+    if (!chunk || !chunk.generatedData?.buildings) {
+      return false
+    }
+    
+    // Check collision with each building in the chunk
+    for (const building of chunk.generatedData.buildings) {
+      if (this.isPointInBuilding(position, building)) {
+        return true
+      }
+    }
+    
+    // Also check adjacent chunks for buildings near chunk borders
+    const adjacentChunks = [
+      `chunk_${chunkX - 1}_${chunkY}`,
+      `chunk_${chunkX + 1}_${chunkY}`,
+      `chunk_${chunkX}_${chunkY - 1}`,
+      `chunk_${chunkX}_${chunkY + 1}`
+    ]
+    
+    for (const adjacentChunkId of adjacentChunks) {
+      const adjacentChunk = this.chunks.get(adjacentChunkId)
+      if (adjacentChunk?.generatedData?.buildings) {
+        for (const building of adjacentChunk.generatedData.buildings) {
+          if (this.isPointInBuilding(position, building)) {
+            return true
+          }
+        }
+      }
+    }
+    
+    return false
+  }
+
+  private isPointInBuilding(point: Vector2, building: any): boolean {
+    const buildingLeft = building.position.x
+    const buildingRight = building.position.x + building.size.x
+    const buildingTop = building.position.y
+    const buildingBottom = building.position.y + building.size.y
+    
+    return point.x >= buildingLeft && 
+           point.x <= buildingRight && 
+           point.y >= buildingTop && 
+           point.y <= buildingBottom
+  }
+
+  // Get nearby collidable objects for more sophisticated collision
+  getNearbyCollidables(position: Vector2, radius: number = 100): any[] {
+    const collidables: any[] = []
+    
+    this.chunks.forEach(chunk => {
+      if (chunk.generatedData?.buildings) {
+        chunk.generatedData.buildings.forEach((building: any) => {
+          const distance = this.getDistanceToBuilding(position, building)
+          if (distance <= radius) {
+            collidables.push({
+              type: 'building',
+              ...building,
+              distance
+            })
+          }
+        })
+      }
+    })
+    
+    return collidables.sort((a, b) => a.distance - b.distance)
+  }
+
+  private getDistanceToBuilding(point: Vector2, building: any): number {
+    // Distance to closest point on building rectangle
+    const buildingCenterX = building.position.x + building.size.x / 2
+    const buildingCenterY = building.position.y + building.size.y / 2
+    
+    const dx = Math.max(0, Math.abs(point.x - buildingCenterX) - building.size.x / 2)
+    const dy = Math.max(0, Math.abs(point.y - buildingCenterY) - building.size.y / 2)
+    
+    return Math.sqrt(dx * dx + dy * dy)
+  }
+
+  // Check if movement from one point to another is blocked
+  isMovementBlocked(from: Vector2, to: Vector2): boolean {
+    // Simple line-of-sight check for movement
+    const dx = to.x - from.x
+    const dy = to.y - from.y
+    const distance = Math.sqrt(dx * dx + dy * dy)
+    
+    if (distance === 0) return false
+    
+    const steps = Math.ceil(distance / 5) // Check every 5 units
+    const stepX = dx / steps
+    const stepY = dy / steps
+    
+    for (let i = 0; i <= steps; i++) {
+      const checkPoint = {
+        x: from.x + stepX * i,
+        y: from.y + stepY * i
+      }
+      
+      if (this.isBlocked(checkPoint)) {
+        return true
+      }
+    }
+    
+    return false
+  }
+
   // Get current world statistics
   getWorldStats() {
     const chunks = Array.from(this.chunks.values())

@@ -47,7 +47,7 @@ export class Renderer {
     this.updateViewport()
   }
 
-  renderWorld(worldState: any) {
+  renderWorld(worldState: any, playerPosition?: {x: number, y: number}) {
     if (!worldState) return
 
     // Draw animated cyberpunk grid
@@ -57,7 +57,7 @@ export class Renderer {
     if (worldState.chunks) {
       worldState.chunks.forEach((chunk: any) => {
         if (this.isChunkInViewport(chunk)) {
-          this.renderChunk(chunk)
+          this.renderChunk(chunk, playerPosition)
         }
       })
     }
@@ -128,63 +128,87 @@ export class Renderer {
     }
   }
 
-  private renderChunk(chunk: any) {
+  private renderChunk(chunk: any, playerPosition?: {x: number, y: number}) {
     if (!chunk.generatedData) return
 
     const { buildings, roads, npcs } = chunk.generatedData
 
-    // Render buildings
-    if (buildings) {
-      buildings.forEach((building: any) => {
-        this.renderBuilding(building)
-      })
-    }
-
-    // Render roads
+    // Render roads first (behind everything)
     if (roads) {
       roads.forEach((road: any) => {
         this.renderRoad(road)
       })
     }
 
+    // Render buildings
+    if (buildings) {
+      buildings.forEach((building: any) => {
+        this.renderBuilding(building, playerPosition)
+      })
+    }
+
     // Render NPCs
     if (npcs) {
       npcs.forEach((npc: any) => {
-        this.renderNPC(npc)
+        this.renderNPC(npc, playerPosition)
       })
     }
   }
 
-  private renderBuilding(building: any) {
+  private renderBuilding(building: any, playerPosition?: {x: number, y: number}) {
     const screenPos = this.worldToScreen(building.position)
-    const screenSize = this.worldToScreen(building.size)
+    const screenSize = {
+      x: building.size.x * this.camera.zoom,
+      y: building.size.y * this.camera.zoom
+    }
+    
+    // Check if player is near this building for interaction feedback
+    let isNearby = false
+    if (playerPosition) {
+      const dx = playerPosition.x - (building.position.x + building.size.x / 2)
+      const dy = playerPosition.y - (building.position.y + building.size.y / 2)
+      const distance = Math.sqrt(dx * dx + dy * dy)
+      isNearby = distance <= 50 // Within interaction range
+    }
     
     if (!this.isInViewport(screenPos, screenSize)) return
 
-    // Shadow/depth effect
-    this.ctx.fillStyle = 'rgba(0, 0, 0, 0.3)'
-    this.ctx.fillRect(screenPos.x + 2, screenPos.y + 2, screenSize.x, screenSize.y)
+    // Enhanced shadow/depth effect
+    this.ctx.fillStyle = 'rgba(0, 0, 0, 0.5)'
+    this.ctx.fillRect(screenPos.x + 4, screenPos.y + 4, screenSize.x, screenSize.y)
 
-    // Building body with district-based colors
+    // Building body with district-based colors - much more visible
     const buildingColor = this.getBuildingColor(building)
     this.ctx.fillStyle = buildingColor.fill
     this.ctx.fillRect(screenPos.x, screenPos.y, screenSize.x, screenSize.y)
     
-    // Hackable building glow effect
+    // Strong building outline for visibility
+    this.ctx.strokeStyle = buildingColor.outline
+    this.ctx.lineWidth = 3
+    this.ctx.strokeRect(screenPos.x, screenPos.y, screenSize.x, screenSize.y)
+    
+    // Inner border for better definition
+    this.ctx.strokeStyle = buildingColor.innerBorder || '#ffffff'
+    this.ctx.lineWidth = 1
+    this.ctx.strokeRect(screenPos.x + 2, screenPos.y + 2, screenSize.x - 4, screenSize.y - 4)
+    
+    // Hackable building glow effect - more prominent
     if (building.hackable) {
       this.ctx.save()
       this.ctx.shadowColor = '#ff0080'
-      this.ctx.shadowBlur = 10 + Math.sin(this.time * 0.003) * 5
+      this.ctx.shadowBlur = 15 + Math.sin(this.time * 0.003) * 8
       this.ctx.strokeStyle = '#ff0080'
-      this.ctx.lineWidth = 2
-      this.ctx.strokeRect(screenPos.x - 1, screenPos.y - 1, screenSize.x + 2, screenSize.y + 2)
+      this.ctx.lineWidth = 3
+      this.ctx.strokeRect(screenPos.x - 2, screenPos.y - 2, screenSize.x + 4, screenSize.y + 4)
       this.ctx.restore()
     }
-
-    // Building outline
-    this.ctx.strokeStyle = buildingColor.outline
+    
+    // Collision boundary visualization (subtle red outline)
+    this.ctx.strokeStyle = 'rgba(255, 100, 100, 0.3)'
     this.ctx.lineWidth = 1
-    this.ctx.strokeRect(screenPos.x, screenPos.y, screenSize.x, screenSize.y)
+    this.ctx.setLineDash([5, 5])
+    this.ctx.strokeRect(screenPos.x - 1, screenPos.y - 1, screenSize.x + 2, screenSize.y + 2)
+    this.ctx.setLineDash([])
     
     // Windows/details
     this.drawBuildingDetails(screenPos, screenSize, building)
@@ -192,6 +216,16 @@ export class Renderer {
     // Security level indicator
     if (building.securityLevel > 0) {
       this.drawSecurityIndicator(screenPos, building.securityLevel)
+    }
+    
+    // Building type label (for debugging/clarity)
+    if (screenSize.x > 30 && screenSize.y > 30) {
+      this.drawBuildingLabel(screenPos, screenSize, building)
+    }
+    
+    // Interaction feedback when nearby
+    if (isNearby && (building.hackable || building.type === 'entrance')) {
+      this.drawInteractionPrompt(screenPos, screenSize, building)
     }
   }
 
@@ -207,20 +241,46 @@ export class Renderer {
     this.ctx.stroke()
   }
 
-  private renderNPC(npc: any) {
+  private renderNPC(npc: any, playerPosition?: {x: number, y: number}) {
     const screenPos = this.worldToScreen(npc.position)
-    const size = 8 * this.camera.zoom
+    const size = 10 * this.camera.zoom // Slightly bigger
+    
+    // Check if player is near this NPC for interaction feedback
+    let isNearby = false
+    if (playerPosition) {
+      const dx = playerPosition.x - npc.position.x
+      const dy = playerPosition.y - npc.position.y
+      const distance = Math.sqrt(dx * dx + dy * dy)
+      isNearby = distance <= 40 // Within interaction range
+    }
 
-    // NPC body
+    // NPC body with better visibility
     this.ctx.fillStyle = this.getNPCColor(npc.type)
     this.ctx.beginPath()
     this.ctx.arc(screenPos.x, screenPos.y, size, 0, Math.PI * 2)
     this.ctx.fill()
 
-    // NPC outline
+    // NPC outline - stronger for visibility
     this.ctx.strokeStyle = '#ffffff'
-    this.ctx.lineWidth = 1
+    this.ctx.lineWidth = 2
     this.ctx.stroke()
+    
+    // Interaction indicator when nearby
+    if (isNearby) {
+      this.ctx.strokeStyle = '#00ff00'
+      this.ctx.lineWidth = 3
+      this.ctx.beginPath()
+      this.ctx.arc(screenPos.x, screenPos.y, size + 5, 0, Math.PI * 2)
+      this.ctx.stroke()
+    }
+    
+    // NPC type label
+    if (size > 8) {
+      this.ctx.fillStyle = '#ffffff'
+      this.ctx.font = '10px monospace'
+      this.ctx.textAlign = 'center'
+      this.ctx.fillText(npc.type.toUpperCase(), screenPos.x, screenPos.y - size - 8)
+    }
   }
 
   private renderPlayer(player: any) {
@@ -392,15 +452,80 @@ export class Renderer {
 
   private getBuildingColor(building: any) {
     const districtColors = {
-      corporate: { fill: '#1a1a2e', outline: '#00ffff' },
-      residential: { fill: '#2d2d44', outline: '#ffffff' },
-      industrial: { fill: '#3d2914', outline: '#ff6b35' },
-      underground: { fill: '#0f1419', outline: '#ff0080' },
-      wasteland: { fill: '#2d1f1f', outline: '#ff4444' }
+      corporate: { 
+        fill: '#2a3d66', 
+        outline: '#00ffff', 
+        innerBorder: '#4a6fa5' 
+      },
+      residential: { 
+        fill: '#4a4a70', 
+        outline: '#ffffff', 
+        innerBorder: '#6a6a90' 
+      },
+      industrial: { 
+        fill: '#663d1a', 
+        outline: '#ff6b35', 
+        innerBorder: '#996d4a' 
+      },
+      underground: { 
+        fill: '#2a1f2a', 
+        outline: '#ff0080', 
+        innerBorder: '#4a3f4a' 
+      },
+      wasteland: { 
+        fill: '#4d2f2f', 
+        outline: '#ff4444', 
+        innerBorder: '#6d4f4f' 
+      }
     }
     
     return districtColors[building.district as keyof typeof districtColors] || 
-           { fill: '#333333', outline: '#666666' }
+           { fill: '#555555', outline: '#888888', innerBorder: '#777777' }
+  }
+  
+  private drawBuildingLabel(pos: {x: number, y: number}, size: {x: number, y: number}, building: any) {
+    const centerX = pos.x + size.x / 2
+    const centerY = pos.y + size.y / 2
+    
+    // Building type text
+    this.ctx.save()
+    this.ctx.fillStyle = '#ffffff'
+    this.ctx.font = `${Math.max(10, size.y * 0.1)}px monospace`
+    this.ctx.textAlign = 'center'
+    this.ctx.textBaseline = 'middle'
+    
+    // Text shadow for better visibility
+    this.ctx.shadowColor = '#000000'
+    this.ctx.shadowBlur = 2
+    this.ctx.shadowOffsetX = 1
+    this.ctx.shadowOffsetY = 1
+    
+    const label = building.type || 'BUILDING'
+    this.ctx.fillText(label.toUpperCase(), centerX, centerY)
+    this.ctx.restore()
+  }
+  
+  private drawInteractionPrompt(pos: {x: number, y: number}, size: {x: number, y: number}, building: any) {
+    const centerX = pos.x + size.x / 2
+    const promptY = pos.y - 15
+    
+    this.ctx.save()
+    
+    // Pulsing background
+    const pulseAlpha = 0.5 + Math.sin(this.time * 0.005) * 0.3
+    this.ctx.fillStyle = `rgba(0, 255, 0, ${pulseAlpha})`
+    this.ctx.fillRect(centerX - 30, promptY - 8, 60, 16)
+    
+    // Interaction text
+    this.ctx.fillStyle = '#000000'
+    this.ctx.font = '12px monospace'
+    this.ctx.textAlign = 'center'
+    this.ctx.textBaseline = 'middle'
+    
+    const action = building.hackable ? '[E] HACK' : '[E] ENTER'
+    this.ctx.fillText(action, centerX, promptY)
+    
+    this.ctx.restore()
   }
 
   private drawBuildingDetails(pos: {x: number, y: number}, size: {x: number, y: number}, building: any) {

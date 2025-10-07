@@ -31,13 +31,17 @@ export class GameEngine {
     this.inputManager = new InputManager(canvas)
     this.audioManager = new AudioManager()
     this.worldSystem = new WorldSystem()
-    this.combatSystem = new CombatSystem()
+    
+    // Pass worldSystem to systems that need collision detection
+    this.combatSystem = new CombatSystem(this.worldSystem)
+    this.movementSystem = new MovementSystem(this.worldSystem)
+    
     this.contractSystem = new ContractSystem()
     this.hackingSystem = new HackingSystem()
     this.inventorySystem = new InventorySystem()
-    this.movementSystem = new MovementSystem()
     
     this.setupEventListeners()
+    this.initializeDemoPlayer()
   }
 
   private setupEventListeners() {
@@ -90,12 +94,33 @@ export class GameEngine {
     // this.networkManager.sendPlayerMovement(movementData)
   }
   
+  private initializeDemoPlayer() {
+    // Create a demo player for testing
+    const demoPlayer = {
+      id: 'demo-player',
+      username: 'TestPlayer',
+      position: { x: 0, y: 0 },
+      health: 100,
+      credits: 1000,
+      isAlive: true
+    }
+    
+    // Set player in movement system
+    this.movementSystem.setPlayer(demoPlayer)
+    
+    // Add player to world system
+    this.worldSystem.addPlayer(demoPlayer)
+    
+    // Initialize player in combat system
+    this.combatSystem.initializePlayer(demoPlayer.id, 100, 0)
+  }
+  
   private updateCamera() {
     const playerPosition = this.movementSystem.getPlayerPosition()
     if (playerPosition.x !== 0 || playerPosition.y !== 0) {
-      // Smooth camera following with slight lag for more natural feel
+      // More responsive camera - less lag
       const currentCamera = this.renderer.getCamera()
-      const lerpFactor = 0.08 // Adjust for camera smoothness
+      const lerpFactor = 0.15 // More responsive camera
       
       const targetX = playerPosition.x
       const targetY = playerPosition.y
@@ -164,8 +189,11 @@ export class GameEngine {
     // Clear canvas
     this.renderer.clear()
     
-    // Render world
-    this.renderer.renderWorld(this.worldSystem.getWorldState())
+    // Get current player position for interaction feedback
+    const playerPosition = this.movementSystem.getPlayerPosition()
+    
+    // Render world with player position for interaction feedback
+    this.renderer.renderWorld(this.worldSystem.getWorldState(), playerPosition)
     
     // Render players
     this.renderer.renderPlayers(this.worldSystem.getPlayers())

@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fixer Game Test</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: #000;
+            overflow: hidden;
+            font-family: monospace;
+            color: #00ff88;
+        }
+        #gameCanvas {
+            display: block;
+            border: 1px solid #00ff88;
+        }
+        #instructions {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            z-index: 1000;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 10px;
+            border: 1px solid #00ff88;
+        }
+    </style>
+</head>
+<body>
+    <div id="instructions">
+        <h3>🎮 FIXER GAME TEST</h3>
+        <p><strong>WASD:</strong> Move player</p>
+        <p><strong>Mouse:</strong> Aim</p>
+        <p><strong>Click:</strong> Shoot</p>
+        <p><strong>E:</strong> Interact with buildings/NPCs when nearby</p>
+        <p><strong>R:</strong> Reload weapon</p>
+        <br>
+        <p><em>You should now be able to move around without walking through buildings!</em></p>
+        <p><em>Buildings are now much more visible with better colors and outlines.</em></p>
+        <p><em>Green interaction prompts appear when you're near hackable buildings.</em></p>
+    </div>
+    <canvas id="gameCanvas"></canvas>
+
+    <script type="module">
+        import { GameEngine } from './dist/game/engine/GameEngine.js';
+        
+        // Initialize the game
+        const canvas = document.getElementById('gameCanvas');
+        const gameEngine = new GameEngine(canvas);
+        
+        // Resize canvas to fit window
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            gameEngine.getRenderer().resize(canvas.width, canvas.height);
+        }
+        
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+        
+        // Start the game
+        gameEngine.start();
+        
+        // Log game info
+        console.log('🎮 Fixer Game Initialized!');
+        console.log('World Stats:', gameEngine.getWorldSystem().getWorldStats());
+        
+        // Test collision detection
+        const worldSystem = gameEngine.getWorldSystem();
+        console.log('Collision Test (0,0):', worldSystem.isBlocked({ x: 0, y: 0 }));
+        console.log('Collision Test (100,100):', worldSystem.isBlocked({ x: 100, y: 100 }));
+    </script>
+</body>
+</html>

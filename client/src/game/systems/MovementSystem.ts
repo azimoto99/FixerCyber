@@ -9,15 +9,18 @@ export class MovementSystem {
   private velocity: Vector2 = { x: 0, y: 0 }
   private inputSequence = 0
   private lastServerUpdate = 0
+  private worldSystem: any = null // Reference to WorldSystem for collision detection
   
-  // Movement constants
-  private readonly MOVEMENT_SPEED = 200 // pixels per second
-  private readonly ACCELERATION = 800
-  private readonly DECELERATION = 1000
+  // Movement constants - more responsive
+  private readonly MOVEMENT_SPEED = 300 // pixels per second
+  private readonly ACCELERATION = 2000 // Much faster acceleration
   private readonly MAX_INPUT_BUFFER = 60 // ~1 second at 60fps
   private readonly RECONCILIATION_THRESHOLD = 5 // pixels
+  private readonly PLAYER_RADIUS = 15 // Player collision radius
   
-  constructor() {}
+  constructor(worldSystem?: any) {
+    this.worldSystem = worldSystem
+  }
   
   setPlayer(player: Player) {
     this.currentPlayer = player
@@ -69,37 +72,123 @@ export class MovementSystem {
     this.emitMovement(movementInput)
   }
   
-  private updateVelocity(input: { x: number, y: number }, deltaTime: number) {
-    const targetVelocityX = input.x * this.MOVEMENT_SPEED
-    const targetVelocityY = input.y * this.MOVEMENT_SPEED
+  private updateVelocity(input: { x: number, y: number }, _deltaTime: number) {
+    const hasInput = Math.abs(input.x) > 0 || Math.abs(input.y) > 0
     
-    // Apply acceleration or deceleration
-    const accel = Math.abs(input.x) > 0 ? this.ACCELERATION : this.DECELERATION
-    const accelY = Math.abs(input.y) > 0 ? this.ACCELERATION : this.DECELERATION
-    
-    // Smooth velocity changes
-    this.velocity.x = this.lerp(this.velocity.x, targetVelocityX, accel * deltaTime / this.MOVEMENT_SPEED)
-    this.velocity.y = this.lerp(this.velocity.y, targetVelocityY, accelY * deltaTime / this.MOVEMENT_SPEED)
-    
-    // Apply speed limit
-    const speed = Math.sqrt(this.velocity.x * this.velocity.x + this.velocity.y * this.velocity.y)
-    if (speed > this.MOVEMENT_SPEED) {
-      const scale = this.MOVEMENT_SPEED / speed
-      this.velocity.x *= scale
-      this.velocity.y *= scale
+    if (hasInput) {
+      // Direct movement - more responsive
+      this.velocity.x = input.x * this.MOVEMENT_SPEED
+      this.velocity.y = input.y * this.MOVEMENT_SPEED
+      
+      // Normalize diagonal movement so it's not faster
+      const speed = Math.sqrt(this.velocity.x * this.velocity.x + this.velocity.y * this.velocity.y)
+      if (speed > this.MOVEMENT_SPEED) {
+        const scale = this.MOVEMENT_SPEED / speed
+        this.velocity.x *= scale
+        this.velocity.y *= scale
+      }
+    } else {
+      // Quick stop when no input
+      this.velocity.x = 0
+      this.velocity.y = 0
     }
   }
   
   private updatePosition(deltaTime: number) {
+    if (!this.currentPlayer) return
+    
+    // Calculate new position
+    const newX = this.predictedPosition.x + this.velocity.x * deltaTime
+    const newY = this.predictedPosition.y + this.velocity.y * deltaTime
+    
+    // Check collision with world system if available
+    let finalX = newX
+    let finalY = newY
+    
+    if (this.worldSystem && this.worldSystem.isBlocked) {
+      // Check collision for the new position with player radius
+      const collisionPoints = [
+        { x: newX, y: newY }, // Center
+        { x: newX - this.PLAYER_RADIUS, y: newY }, // Left
+        { x: newX + this.PLAYER_RADIUS, y: newY }, // Right  
+        { x: newX, y: newY - this.PLAYER_RADIUS }, // Top
+        { x: newX, y: newY + this.PLAYER_RADIUS }, // Bottom
+      ]
+      
+      let xBlocked = false
+      let yBlocked = false
+      
+      // Check if any collision points are blocked
+      for (const point of collisionPoints) {
+        if (this.worldSystem.isBlocked(point)) {
+          // Try to determine which axis is blocked
+          if (Math.abs(point.x - this.predictedPosition.x) > Math.abs(point.y - this.predictedPosition.y)) {
+            xBlocked = true
+          } else {
+            yBlocked = true
+          }
+        }
+      }
+      
+      // Apply collision constraints
+      if (xBlocked) {
+        finalX = this.predictedPosition.x // Don't move in X
+        this.velocity.x = 0
+      }
+      if (yBlocked) {
+        finalY = this.predictedPosition.y // Don't move in Y
+        this.velocity.y = 0
+      }
+      
+      // Try sliding along walls - if one axis is blocked, allow movement in the other
+      if (xBlocked && !yBlocked) {
+        const slideY = this.predictedPosition.y + this.velocity.y * deltaTime
+        const slidePoints = [
+          { x: this.predictedPosition.x, y: slideY - this.PLAYER_RADIUS },
+          { x: this.predictedPosition.x, y: slideY + this.PLAYER_RADIUS }
+        ]
+        
+        let canSlideY = true
+        for (const point of slidePoints) {
+          if (this.worldSystem.isBlocked(point)) {
+            canSlideY = false
+            break
+          }
+        }
+        
+        if (canSlideY) {
+          finalY = slideY
+        }
+      }
+      
+      if (yBlocked && !xBlocked) {
+        const slideX = this.predictedPosition.x + this.velocity.x * deltaTime
+        const slidePoints = [
+          { x: slideX - this.PLAYER_RADIUS, y: this.predictedPosition.y },
+          { x: slideX + this.PLAYER_RADIUS, y: this.predictedPosition.y }
+        ]
+        
+        let canSlideX = true
+        for (const point of slidePoints) {
+          if (this.worldSystem.isBlocked(point)) {
+            canSlideX = false
+            break
+          }
+        }
+        
+        if (canSlideX) {
+          finalX = slideX
+        }
+      }
+    }
+    
     // Update predicted position
-    this.predictedPosition.x += this.velocity.x * deltaTime
-    this.predictedPosition.y += this.velocity.y * deltaTime
+    this.predictedPosition.x = finalX
+    this.predictedPosition.y = finalY
     
     // Update player position (client prediction)
-    if (this.currentPlayer) {
-      this.currentPlayer.position.x = this.predictedPosition.x
-      this.currentPlayer.position.y = this.predictedPosition.y
-    }
+    this.currentPlayer.position.x = this.predictedPosition.x
+    this.currentPlayer.position.y = this.predictedPosition.y
   }
   
   private updateCamera() {
