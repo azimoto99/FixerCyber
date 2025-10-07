@@ -18,12 +18,17 @@ export function DebugPanel({ gameEngine }: DebugPanelProps) {
         const playerPos = movementSystem.getPlayerPosition()
         const velocity = movementSystem.getVelocity()
         const speed = movementSystem.getMovementSpeed()
+        
+        // Get world stats
+        const worldSystem = gameEngine.getWorldSystem()
+        const worldStats = worldSystem ? worldSystem.getWorldStats() : null
 
         setDebugInfo({
           ...info,
           currentPosition: playerPos,
           speed: Math.round(speed * 100) / 100,
-          velocityMagnitude: Math.round(Math.sqrt(velocity.x * velocity.x + velocity.y * velocity.y) * 100) / 100
+          velocityMagnitude: Math.round(Math.sqrt(velocity.x * velocity.x + velocity.y * velocity.y) * 100) / 100,
+          worldStats
         })
       }
     }, 100) // Update 10 times per second
@@ -104,6 +109,40 @@ export function DebugPanel({ gameEngine }: DebugPanelProps) {
             ' Never'
           }
         </div>
+        
+        {debugInfo.worldStats && (
+          <>
+            <div className="border-t border-cyberpunk-primary/30 my-2"></div>
+            <div className="text-cyberpunk-primary font-bold">WORLD</div>
+            
+            <div>
+              <span className="text-cyberpunk-accent">Chunks:</span> {debugInfo.worldStats.totalChunks}
+            </div>
+            
+            <div>
+              <span className="text-cyberpunk-accent">Buildings:</span> {debugInfo.worldStats.totalBuildings}
+            </div>
+            
+            <div>
+              <span className="text-cyberpunk-accent">NPCs:</span> {debugInfo.worldStats.totalNPCs}
+            </div>
+            
+            <div>
+              <span className="text-cyberpunk-accent">Loot:</span> {debugInfo.worldStats.totalLoot}
+            </div>
+            
+            <div className="text-xs mt-1">
+              <span className="text-cyberpunk-accent">Districts:</span>
+              <div className="ml-2">
+                {Object.entries(debugInfo.worldStats.districtCounts).map(([district, count]) => (
+                  <div key={district} className="text-xs">
+                    {district}: {String(count)}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </>
+        )}
       </div>
       
       <div className="mt-3 text-xs text-cyberpunk-light/70">

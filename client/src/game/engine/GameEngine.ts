@@ -104,6 +104,9 @@ export class GameEngine {
       const newY = currentCamera.y + (targetY - currentCamera.y) * lerpFactor
       
       this.renderer.setCamera(newX, newY, currentCamera.zoom)
+      
+      // Load chunks around player position for streaming world generation
+      this.worldSystem.loadChunksAroundPosition(playerPosition, 2)
     }
   }
 

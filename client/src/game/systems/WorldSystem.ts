@@ -1,4 +1,6 @@
 // World management system
+import { WorldGenerator } from '../utils/WorldGenerator'
+
 // Simple event emitter implementation
 class EventEmitter {
   private events: { [key: string]: Function[] } = {}
@@ -68,9 +70,49 @@ export class WorldSystem extends EventEmitter {
       return this.chunks.get(chunkId)
     }
 
-    // Load chunk from server
+    // Parse chunk coordinates from ID
+    const coords = this.parseChunkId(chunkId)
+    if (coords) {
+      const generatedChunk = this.generateChunkIfNeeded(coords.x, coords.y)
+      if (generatedChunk) {
+        return generatedChunk
+      }
+    }
+
+    // Load chunk from server if not generated locally
     this.emit('chunkRequested', chunkId)
     return null
+  }
+  
+  generateChunkIfNeeded(x: number, y: number) {
+    const chunkId = `chunk_${x}_${y}`
+    
+    if (!this.chunks.has(chunkId)) {
+      const districtType = this.getDistrictTypeForCoords(x, y)
+      const generatedChunk = WorldGenerator.generateChunk(x, y, districtType)
+      
+      // Wrap in expected format
+      const chunk = {
+        id: chunkId,
+        x,
+        y,
+        districtType,
+        generatedData: {
+          buildings: generatedChunk.buildings,
+          roads: generatedChunk.roads,
+          npcs: generatedChunk.npcs,
+          loot: generatedChunk.loot
+        },
+        generatedAt: new Date(),
+        lastAccessed: new Date()
+      }
+      
+      this.addChunk(chunk)
+      console.log(`🏗️ Generated chunk ${chunkId} (${districtType})`, chunk)
+      return chunk
+    }
+    
+    return this.chunks.get(chunkId)
   }
 
   addChunk(chunk: any) {
@@ -398,6 +440,122 @@ export class WorldSystem extends EventEmitter {
     this.worldState.chunks = demoChunks
 
     console.log('🌍 Demo world initialized with', demoChunks.length, 'chunks')
+  }
+  
+  // Utility methods for dynamic generation
+  private parseChunkId(chunkId: string): { x: number, y: number } | null {
+    const match = chunkId.match(/^chunk_(-?\d+)_(-?\d+)$/)
+    if (match) {
+      return {
+        x: parseInt(match[1]),
+        y: parseInt(match[2])
+      }
+    }
+    return null
+  }
+  
+  private getDistrictTypeForCoords(x: number, y: number): string {
+    // Create distinct districts based on coordinates
+    // This creates a pattern across the world
+    
+    const distance = Math.sqrt(x * x + y * y)
+    
+    // Center area (0,0) is always corporate
+    if (distance <= 1) {
+      return 'corporate'
+    }
+    
+    // Create districts in rings around center
+    const angle = Math.atan2(y, x)
+    const normalizedAngle = (angle + Math.PI) / (2 * Math.PI) // 0-1
+    
+    if (distance <= 2) {
+      // Inner ring: mix of corporate and residential
+      if (normalizedAngle < 0.3) return 'corporate'
+      if (normalizedAngle < 0.7) return 'residential'
+      return 'corporate'
+    }
+    
+    if (distance <= 4) {
+      // Middle ring: more diverse
+      if (normalizedAngle < 0.2) return 'industrial'
+      if (normalizedAngle < 0.4) return 'residential'
+      if (normalizedAngle < 0.6) return 'underground'
+      if (normalizedAngle < 0.8) return 'industrial'
+      return 'residential'
+    }
+    
+    if (distance <= 8) {
+      // Outer ring: industrial and underground
+      if (normalizedAngle < 0.3) return 'underground'
+      if (normalizedAngle < 0.6) return 'industrial'
+      if (normalizedAngle < 0.8) return 'underground'
+      return 'wasteland'
+    }
+    
+    // Far out: mostly wasteland with some underground
+    if (Math.random() < 0.8) {
+      return 'wasteland'
+    }
+    return 'underground'
+  }
+  
+  // Load chunks around a position (for streaming)
+  loadChunksAroundPosition(position: Vector2, radius: number = 2) {
+    const chunkSize = 1000 // Should match WorldGenerator.CHUNK_SIZE
+    const centerChunkX = Math.floor(position.x / chunkSize)
+    const centerChunkY = Math.floor(position.y / chunkSize)
+    
+    const chunksToLoad = []
+    
+    for (let x = centerChunkX - radius; x <= centerChunkX + radius; x++) {
+      for (let y = centerChunkY - radius; y <= centerChunkY + radius; y++) {
+        const chunkId = `chunk_${x}_${y}`
+        if (!this.chunks.has(chunkId)) {
+          const chunk = this.generateChunkIfNeeded(x, y)
+          if (chunk) {
+            chunksToLoad.push(chunk)
+          }
+        }
+      }
+    }
+    
+    if (chunksToLoad.length > 0) {
+      // Update world state chunks
+      if (this.worldState) {
+        this.worldState.chunks = Array.from(this.chunks.values())
+      }
+      
+      console.log(`🗺️ Loaded ${chunksToLoad.length} new chunks around (${centerChunkX}, ${centerChunkY})`)
+    }
+    
+    return chunksToLoad
+  }
+  
+  // Get current world statistics
+  getWorldStats() {
+    const chunks = Array.from(this.chunks.values())
+    const stats = {
+      totalChunks: chunks.length,
+      districtCounts: {} as Record<string, number>,
+      totalBuildings: 0,
+      totalNPCs: 0,
+      totalLoot: 0
+    }
+    
+    chunks.forEach(chunk => {
+      // Count districts
+      stats.districtCounts[chunk.districtType] = (stats.districtCounts[chunk.districtType] || 0) + 1
+      
+      // Count entities
+      if (chunk.generatedData) {
+        stats.totalBuildings += chunk.generatedData.buildings?.length || 0
+        stats.totalNPCs += chunk.generatedData.npcs?.length || 0
+        stats.totalLoot += chunk.generatedData.loot?.length || 0
+      }
+    })
+    
+    return stats
   }
 }
 
