@@ -203,17 +203,6 @@ export class IsometricMovementSystem {
     return this.moveSpeed
   }
 
-  getDebugInfo(): any {
-    if (!this.player) return {}
-    
-    return {
-      velocity: this.player.velocity,
-      isMoving: this.player.isMoving,
-      inputBufferSize: 0,
-      lastServerUpdate: null
-    }
-  }
-
   // Movement configuration
   setMoveSpeed(speed: number) {
     this.moveSpeed = Math.max(50, Math.min(500, speed))
@@ -265,7 +254,9 @@ export class IsometricMovementSystem {
       velocity: this.player.velocity,
       speed: this.player.speed,
       isMoving: this.player.isMoving,
-      collisionEnabled: this.collisionEnabled
+      collisionEnabled: this.collisionEnabled,
+      inputBufferSize: 0,
+      lastServerUpdate: null
     }
   }
 }
