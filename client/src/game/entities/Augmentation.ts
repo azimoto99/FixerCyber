@@ -67,19 +67,6 @@ export class Augmentation {
     return true
   }
 
-  private canInstall(player: any): boolean {
-    // Check if player has enough credits
-    if (player.credits < this.installationCost) return false
-
-    // Check if player has enough power capacity
-    if (player.getTotalPowerUsage() + this.powerCost > player.getMaxPowerCapacity()) return false
-
-    // Check requirements
-    if (!this.checkRequirements(player)) return false
-
-    return true
-  }
-
   private checkRequirements(player: any): boolean {
     // Check level requirement
     if (this.requirements.level && player.level < this.requirements.level) return false

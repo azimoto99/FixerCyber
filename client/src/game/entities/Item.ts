@@ -1,6 +1,8 @@
 // Item entity
 import { Vector2, ItemType, Rarity } from '../../types/game'
 
+export { ItemType, Rarity }
+
 export class Item {
   public id: string
   public type: ItemType

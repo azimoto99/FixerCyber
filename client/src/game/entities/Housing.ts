@@ -198,15 +198,19 @@ export class Housing {
 
   // Utility methods
   getCenter(): Vector2 {
-    return new Vector2(
-      this.position.x + 50, // Assuming 100x100 building
-      this.position.y + 50
-    )
+    // Vector2 is an interface, not a class, so return an object
+    return {
+      x: this.position.x + 50, // Assuming 100x100 building
+      y: this.position.y + 50
+    }
   }
 
   getDistanceTo(position: Vector2): number {
     const center = this.getCenter()
-    return center.distanceTo(position)
+    // Calculate Euclidean distance manually
+    const dx = center.x - position.x
+    const dy = center.y - position.y
+    return Math.sqrt(dx * dx + dy * dy)
   }
 
   isNearby(position: Vector2, radius: number = 100): boolean {
@@ -235,7 +239,8 @@ export class Housing {
       data.id,
       data.type,
       data.district,
-      Vector2.fromJSON(data.position),
+      // Vector2.fromJSON is not available, so parse manually
+      { x: data.position.x, y: data.position.y },
       data.rentCost
     )
     
