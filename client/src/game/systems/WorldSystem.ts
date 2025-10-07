@@ -130,6 +130,10 @@ export class WorldSystem extends EventEmitter {
   getChunk(chunkId: string) {
     return this.chunks.get(chunkId)
   }
+  
+  getChunks() {
+    return this.chunks.values()
+  }
 
   // Player management
   addPlayer(player: any) {

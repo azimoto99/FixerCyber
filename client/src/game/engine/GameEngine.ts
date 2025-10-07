@@ -9,6 +9,7 @@ import { HackingSystem } from '../systems/HackingSystem'
 import { InventorySystem } from '../systems/InventorySystem'
 import { MovementSystem } from '../systems/MovementSystem'
 import { UISystem } from '../systems/UISystem'
+import { LoadingSystem, LoadingProgress } from '../systems/LoadingSystem'
 
 export class GameEngine {
   private renderer: Renderer
@@ -21,18 +22,27 @@ export class GameEngine {
   private inventorySystem: InventorySystem
   private movementSystem: MovementSystem
   private uiSystem: UISystem
+  private loadingSystem: LoadingSystem
   
   private isRunning = false
   private lastTime = 0
   private deltaTime = 0
-  // private _fps = 60 // Unused for now
-  // private frameTime = 1000 / this.fps // Unused variable removed
+  private isWorldLoaded = false
+  
+  // Smart chunk loading
+  private lastChunkCheckPosition = { x: 0, y: 0 }
+  private chunkLoadDistance = 800 // Distance from edge before loading new chunks
+  private lastChunkLoadTime = 0
+  private chunkLoadCooldown = 2000 // 2 second cooldown between chunk loads
 
   constructor(canvas: HTMLCanvasElement) {
     this.renderer = new Renderer(canvas)
     this.inputManager = new InputManager(canvas)
     this.audioManager = new AudioManager()
     this.worldSystem = new WorldSystem()
+    
+    // Initialize loading system
+    this.loadingSystem = new LoadingSystem(this.worldSystem)
     
     // Pass worldSystem to systems that need collision detection
     this.combatSystem = new CombatSystem(this.worldSystem)
@@ -44,7 +54,7 @@ export class GameEngine {
     this.uiSystem = new UISystem(canvas, this.combatSystem)
     
     this.setupEventListeners()
-    this.initializeDemoPlayer()
+    // Don't initialize demo player yet - wait for world to load
   }
 
   private setupEventListeners() {
@@ -232,8 +242,7 @@ export class GameEngine {
           this.renderer?.setCamera(newX, newY, currentCamera.zoom)
         }
         
-        // Load chunks around player position for streaming world generation
-        this.worldSystem?.loadChunksAroundPosition(playerPosition, 2)
+        // Smart chunk loading is handled in checkChunkBoundaries() instead
       }
     } catch (error) {
       console.error('GameEngine: Error updating camera:', error)
@@ -250,10 +259,43 @@ export class GameEngine {
   //   console.log('Contract update:', contract)
   // }
 
+  // Start loading the world (call this first)
+  async startLoading(
+    onProgress?: (progress: LoadingProgress) => void,
+    onComplete?: () => void,
+    spawnPosition = { x: 0, y: 0 },
+    chunkRadius = 2
+  ): Promise<void> {
+    console.log('🌍 GameEngine: Starting world loading...')
+    
+    try {
+      await this.loadingSystem.startLoading(
+        spawnPosition,
+        chunkRadius,
+        onProgress,
+        () => {
+          this.isWorldLoaded = true
+          this.initializeDemoPlayer()
+          console.log('✅ GameEngine: World loaded and ready!')
+          onComplete?.()
+        }
+      )
+    } catch (error) {
+      console.error('❌ GameEngine: Loading failed:', error)
+      throw error
+    }
+  }
+  
+  // Start the game loop (call this after loading is complete)
   start() {
     if (this.isRunning) return
+    if (!this.isWorldLoaded) {
+      console.warn('GameEngine: Cannot start game before world is loaded!')
+      return
+    }
     
     this.isRunning = true
+    console.log('🎮 GameEngine: Starting game loop...')
     this.gameLoop()
   }
 
@@ -294,6 +336,9 @@ export class GameEngine {
   }
 
   private update(_deltaTime: number) {
+    // Only update if world is loaded
+    if (!this.isWorldLoaded) return
+    
     try {
       // Update all game systems with error handling
       this.movementSystem?.update(_deltaTime, this.inputManager)
@@ -315,12 +360,22 @@ export class GameEngine {
       
       // Update camera to follow player
       this.updateCamera()
+      
+      // Check if we need to load more chunks (smart loading)
+      this.checkChunkBoundaries()
     } catch (error) {
       console.error('GameEngine: Error in update:', error)
     }
   }
 
   private render() {
+    // Only render if world is loaded
+    if (!this.isWorldLoaded) {
+      // Show simple loading message if not using loading screen
+      this.renderer?.clear()
+      return
+    }
+    
     try {
       // Clear canvas
       this.renderer?.clear()
@@ -350,6 +405,127 @@ export class GameEngine {
       this.uiSystem?.render()
     } catch (error) {
       console.error('GameEngine: Error in render:', error)
+    }
+  }
+  
+  // Smart chunk loading - only load when player approaches world boundaries
+  private checkChunkBoundaries(): void {
+    try {
+      const playerPosition = this.movementSystem?.getPlayerPosition()
+      if (!playerPosition) return
+      
+      const currentTime = performance.now()
+      
+      // Check if enough time has passed since last chunk load
+      if (currentTime - this.lastChunkLoadTime < this.chunkLoadCooldown) {
+        return
+      }
+      
+      // Check if player has moved significantly since last check
+      const dx = playerPosition.x - this.lastChunkCheckPosition.x
+      const dy = playerPosition.y - this.lastChunkCheckPosition.y
+      const distanceMoved = Math.sqrt(dx * dx + dy * dy)
+      
+      // Only check boundaries if player has moved at least 100 pixels
+      if (distanceMoved < 100) {
+        return
+      }
+      
+      this.lastChunkCheckPosition = { x: playerPosition.x, y: playerPosition.y }
+      
+      // Check if player is approaching the edge of loaded chunks
+      const chunkSize = 1000
+      const playerChunkX = Math.floor(playerPosition.x / chunkSize)
+      const playerChunkY = Math.floor(playerPosition.y / chunkSize)
+      
+      // Check distance to nearest chunk boundary
+      const chunkLocalX = playerPosition.x % chunkSize
+      const chunkLocalY = playerPosition.y % chunkSize
+      
+      // Calculate distances to each edge of current chunk
+      const distToLeftEdge = chunkLocalX
+      const distToRightEdge = chunkSize - chunkLocalX
+      const distToTopEdge = chunkLocalY
+      const distToBottomEdge = chunkSize - chunkLocalY
+      
+      // Find the minimum distance to any edge
+      const minDistanceToEdge = Math.min(distToLeftEdge, distToRightEdge, distToTopEdge, distToBottomEdge)
+      
+      // If player is close to an edge, check if we need to load chunks
+      if (minDistanceToEdge < this.chunkLoadDistance) {
+        console.log(`🗺️ Player approaching chunk boundary (${minDistanceToEdge.toFixed(0)}px from edge)`)
+        
+        // Determine which direction player is heading and load chunks in that direction
+        let chunksToCheck: { x: number, y: number }[] = []
+        
+        // Check which edges are close
+        if (distToLeftEdge < this.chunkLoadDistance) {
+          chunksToCheck.push({ x: playerChunkX - 1, y: playerChunkY })
+          console.log(`🔄 Checking left chunk (${playerChunkX - 1}, ${playerChunkY})`)
+        }
+        if (distToRightEdge < this.chunkLoadDistance) {
+          chunksToCheck.push({ x: playerChunkX + 1, y: playerChunkY })
+          console.log(`🔄 Checking right chunk (${playerChunkX + 1}, ${playerChunkY})`)
+        }
+        if (distToTopEdge < this.chunkLoadDistance) {
+          chunksToCheck.push({ x: playerChunkX, y: playerChunkY - 1 })
+          console.log(`🔄 Checking top chunk (${playerChunkX}, ${playerChunkY - 1})`)
+        }
+        if (distToBottomEdge < this.chunkLoadDistance) {
+          chunksToCheck.push({ x: playerChunkX, y: playerChunkY + 1 })
+          console.log(`🔄 Checking bottom chunk (${playerChunkX}, ${playerChunkY + 1})`)
+        }
+        
+        // Load missing chunks
+        this.loadMissingChunks(chunksToCheck)
+      }
+      
+    } catch (error) {
+      console.warn('GameEngine: Error in chunk boundary check:', error)
+    }
+  }
+  
+  // Load chunks that don't exist yet
+  private loadMissingChunks(chunks: { x: number, y: number }[]): void {
+    let chunksLoaded = 0
+    
+    for (const { x, y } of chunks) {
+      const chunkId = `chunk_${x}_${y}`
+      
+      // Only load if chunk doesn't exist
+      if (!this.worldSystem?.getChunk(chunkId)) {
+        try {
+          const startTime = performance.now()
+          const chunk = this.worldSystem?.generateChunkIfNeeded(x, y)
+          const loadTime = performance.now() - startTime
+          
+          if (chunk) {
+            chunksLoaded++
+            console.log(`📦 Loaded chunk (${x}, ${y}) in ${loadTime.toFixed(1)}ms`)
+            
+            // Break if chunk took too long to load (prevent frame drops)
+            if (loadTime > 50) {
+              console.warn(`⚠️ Chunk loading took ${loadTime.toFixed(1)}ms - stopping to prevent frame drops`)
+              break
+            }
+          }
+        } catch (error) {
+          console.warn(`❌ Failed to load chunk (${x}, ${y}):`, error)
+        }
+      }
+    }
+    
+    if (chunksLoaded > 0) {
+      this.lastChunkLoadTime = performance.now()
+      console.log(`✅ Loaded ${chunksLoaded} new chunks near player`)
+      
+      // Update world state with new chunks
+      if (this.worldSystem) {
+        const worldState = this.worldSystem.getWorldState()
+        if (worldState) {
+          worldState.chunks = Array.from(this.worldSystem.getChunks())
+        }
+      }
     }
   }
 
@@ -397,11 +573,38 @@ export class GameEngine {
     this.worldSystem.addPlayer(player)
   }
 
+  // Loading system getters
+  getLoadingSystem() {
+    return this.loadingSystem
+  }
+  
+  isWorldReady(): boolean {
+    return this.isWorldLoaded
+  }
+  
+  // Get current loading progress (if loading)
+  getLoadingProgress() {
+    return this.loadingSystem?.getProgress()
+  }
+  
+  // Check if currently loading
+  isCurrentlyLoading(): boolean {
+    return this.loadingSystem?.isCurrentlyLoading() || false
+  }
+  
+  // Set chunk loading parameters
+  setChunkLoadingParams(distance: number = 800, cooldown: number = 2000): void {
+    this.chunkLoadDistance = distance
+    this.chunkLoadCooldown = cooldown
+    console.log(`🔧 Updated chunk loading: distance=${distance}px, cooldown=${cooldown}ms`)
+  }
+
   // Cleanup
   destroy() {
     this.stop()
     this.inputManager.destroy()
     this.audioManager.destroy()
+    this.loadingSystem?.cancelLoading()
   }
 }
 

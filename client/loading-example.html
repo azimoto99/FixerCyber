@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Loading System Example - Fixer Game</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Courier New', monospace;
+            background: #0a0a0a;
+            color: #00ff41;
+            overflow: hidden;
+        }
+
+        #gameContainer {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+        }
+
+        canvas {
+            display: block;
+            background: #000;
+        }
+
+        .loading-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, #0a0a0a 0%, #1a1a2e 50%, #16213e 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+
+        .loading-content {
+            text-align: center;
+            padding: 40px;
+            background: rgba(0, 0, 0, 0.9);
+            border: 2px solid #00ff41;
+            border-radius: 10px;
+            box-shadow: 0 0 20px rgba(0, 255, 65, 0.3);
+            max-width: 600px;
+            width: 90%;
+        }
+
+        .loading-title {
+            font-size: 48px;
+            margin: 0 0 20px 0;
+            text-shadow: 0 0 10px #00ff41;
+        }
+
+        .loading-progress {
+            margin: 20px 0;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 30px;
+            background: rgba(0, 0, 0, 0.5);
+            border: 1px solid #00ff41;
+            border-radius: 15px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: #00ff41;
+            transition: width 0.3s ease;
+            border-radius: 15px;
+        }
+
+        .progress-text {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-weight: bold;
+            color: #000;
+            z-index: 1;
+        }
+
+        .loading-stats {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin: 20px 0;
+            font-size: 14px;
+        }
+
+        .stat {
+            text-align: left;
+        }
+
+        .loading-message {
+            margin: 15px 0;
+            font-size: 16px;
+            min-height: 20px;
+        }
+
+        .start-button {
+            background: transparent;
+            color: #00ff41;
+            border: 2px solid #00ff41;
+            padding: 15px 30px;
+            font-size: 18px;
+            font-family: inherit;
+            cursor: pointer;
+            border-radius: 5px;
+            transition: all 0.3s ease;
+        }
+
+        .start-button:hover {
+            background: rgba(0, 255, 65, 0.1);
+            box-shadow: 0 0 10px rgba(0, 255, 65, 0.5);
+        }
+
+        .start-button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .console {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            right: 10px;
+            height: 150px;
+            background: rgba(0, 0, 0, 0.8);
+            border: 1px solid #00ff41;
+            border-radius: 5px;
+            padding: 10px;
+            overflow-y: auto;
+            font-size: 12px;
+            z-index: 100;
+        }
+
+        .console-line {
+            margin-bottom: 2px;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+    </style>
+</head>
+<body>
+    <div id="gameContainer">
+        <!-- Loading Screen -->
+        <div id="loadingOverlay" class="loading-overlay">
+            <div class="loading-content">
+                <h1 class="loading-title">🔧 FIXER</h1>
+                
+                <div id="beforeLoading">
+                    <p>Ready to generate cyberpunk world</p>
+                    <button id="startLoading" class="start-button">
+                        Start Loading World
+                    </button>
+                </div>
+                
+                <div id="duringLoading" class="hidden">
+                    <div class="loading-message" id="loadingMessage">
+                        Preparing world generation...
+                    </div>
+                    
+                    <div class="loading-progress">
+                        <div class="progress-bar">
+                            <div id="progressFill" class="progress-fill" style="width: 0%"></div>
+                            <div id="progressText" class="progress-text">0%</div>
+                        </div>
+                    </div>
+                    
+                    <div class="loading-stats">
+                        <div class="stat">
+                            Chunks: <span id="chunksLoaded">0</span> / <span id="totalChunks">0</span>
+                        </div>
+                        <div class="stat">
+                            Stage: <span id="loadingStage">idle</span>
+                        </div>
+                        <div class="stat">
+                            Time: <span id="elapsedTime">0s</span>
+                        </div>
+                        <div class="stat">
+                            ETA: <span id="timeRemaining">--</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div id="afterLoading" class="hidden">
+                    <p>🎮 World loaded successfully!</p>
+                    <button id="startGame" class="start-button">
+                        Start Game
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Game Canvas -->
+        <canvas id="gameCanvas" width="1200" height="800"></canvas>
+        
+        <!-- Debug Console -->
+        <div id="console" class="console"></div>
+    </div>
+
+    <script type="module">
+        // Mock GameEngine class to demonstrate loading
+        class MockGameEngine {
+            constructor(canvas) {
+                this.canvas = canvas
+                this.isLoading = false
+                this.isReady = false
+                this.progress = {
+                    stage: 'idle',
+                    progress: 0,
+                    message: 'Ready to load',
+                    chunksLoaded: 0,
+                    totalChunks: 0,
+                    estimatedTimeRemaining: 0
+                }
+                this.startTime = 0
+            }
+
+            async startLoading(onProgress, onComplete) {
+                this.isLoading = true
+                this.startTime = performance.now()
+                
+                // Simulate world loading
+                const totalChunks = 25 // 5x5 grid
+                this.progress.totalChunks = totalChunks
+                this.progress.stage = 'generating'
+                
+                for (let i = 0; i < totalChunks; i++) {
+                    // Simulate chunk generation time (50-300ms per chunk)
+                    const chunkTime = 50 + Math.random() * 250
+                    await this.sleep(chunkTime)
+                    
+                    this.progress.chunksLoaded = i + 1
+                    this.progress.progress = (i + 1) / totalChunks * 90 // 90% for chunk generation
+                    this.progress.message = `Generating chunk ${i + 1}/${totalChunks}...`
+                    
+                    // Calculate time remaining
+                    const elapsed = performance.now() - this.startTime
+                    const avgTimePerChunk = elapsed / (i + 1)
+                    const remainingChunks = totalChunks - (i + 1)
+                    this.progress.estimatedTimeRemaining = avgTimePerChunk * remainingChunks
+
+                    onProgress?.(this.progress)
+                    
+                    this.log(`📦 Generated chunk ${i + 1}/${totalChunks} in ${chunkTime.toFixed(0)}ms`)
+                }
+                
+                // Finalization
+                this.progress.stage = 'finalizing'
+                this.progress.progress = 95
+                this.progress.message = 'Finalizing world state...'
+                onProgress?.(this.progress)
+                await this.sleep(500)
+                
+                // Complete
+                this.progress.stage = 'complete'
+                this.progress.progress = 100
+                this.progress.message = 'World loaded successfully!'
+                this.progress.estimatedTimeRemaining = 0
+                onProgress?.(this.progress)
+                
+                const totalTime = (performance.now() - this.startTime) / 1000
+                this.log(`✅ World generation complete in ${totalTime.toFixed(1)}s`)
+                
+                this.isLoading = false
+                this.isReady = true
+                onComplete?.()
+            }
+
+            start() {
+                if (!this.isReady) {
+                    this.log('❌ Cannot start game before world is loaded!')
+                    return
+                }
+                
+                this.log('🎮 Game started! Move with WASD keys.')
+                this.log('🗺️ Chunks will load automatically when you approach edges.')
+                this.log('⏱️ Smart loading: 800px trigger distance, 2s cooldown')
+                
+                // Simple game loop simulation
+                this.gameLoop()
+            }
+
+            gameLoop() {
+                // Simulate smart chunk loading trigger
+                setInterval(() => {
+                    if (Math.random() < 0.1) { // 10% chance per check
+                        this.log('🗺️ Player approaching chunk boundary - loading adjacent chunks...')
+                        setTimeout(() => {
+                            this.log('📦 Loaded 1 new chunk in background')
+                        }, Math.random() * 200 + 50)
+                    }
+                }, 5000) // Check every 5 seconds
+            }
+
+            sleep(ms) {
+                return new Promise(resolve => setTimeout(resolve, ms))
+            }
+
+            log(message) {
+                const console = document.getElementById('console')
+                const line = document.createElement('div')
+                line.className = 'console-line'
+                line.textContent = `[${new Date().toLocaleTimeString()}] ${message}`
+                console.appendChild(line)
+                console.scrollTop = console.scrollHeight
+                
+                // Keep only last 50 lines
+                while (console.children.length > 50) {
+                    console.removeChild(console.firstChild)
+                }
+            }
+        }
+
+        // Initialize the demo
+        const canvas = document.getElementById('gameCanvas')
+        const gameEngine = new MockGameEngine(canvas)
+        
+        const beforeLoading = document.getElementById('beforeLoading')
+        const duringLoading = document.getElementById('duringLoading')
+        const afterLoading = document.getElementById('afterLoading')
+        const loadingOverlay = document.getElementById('loadingOverlay')
+        
+        const startLoadingBtn = document.getElementById('startLoading')
+        const startGameBtn = document.getElementById('startGame')
+        
+        // Progress elements
+        const loadingMessage = document.getElementById('loadingMessage')
+        const progressFill = document.getElementById('progressFill')
+        const progressText = document.getElementById('progressText')
+        const chunksLoaded = document.getElementById('chunksLoaded')
+        const totalChunks = document.getElementById('totalChunks')
+        const loadingStage = document.getElementById('loadingStage')
+        const elapsedTime = document.getElementById('elapsedTime')
+        const timeRemaining = document.getElementById('timeRemaining')
+        
+        let startTime = 0
+
+        // Start loading button
+        startLoadingBtn.addEventListener('click', async () => {
+            startTime = performance.now()
+            
+            // Show loading UI
+            beforeLoading.classList.add('hidden')
+            duringLoading.classList.remove('hidden')
+            
+            gameEngine.log('🌍 Starting world generation...')
+            
+            try {
+                await gameEngine.startLoading(
+                    // Progress callback
+                    (progress) => {
+                        updateProgressUI(progress)
+                    },
+                    // Complete callback
+                    () => {
+                        // Show game start UI
+                        duringLoading.classList.add('hidden')
+                        afterLoading.classList.remove('hidden')
+                    }
+                )
+            } catch (error) {
+                gameEngine.log(`❌ Loading failed: ${error.message}`)
+                loadingMessage.textContent = `Loading failed: ${error.message}`
+            }
+        })
+
+        // Start game button
+        startGameBtn.addEventListener('click', () => {
+            loadingOverlay.classList.add('hidden')
+            gameEngine.start()
+        })
+
+        function updateProgressUI(progress) {
+            loadingMessage.textContent = progress.message
+            progressFill.style.width = `${progress.progress}%`
+            progressText.textContent = `${progress.progress.toFixed(1)}%`
+            chunksLoaded.textContent = progress.chunksLoaded
+            totalChunks.textContent = progress.totalChunks
+            loadingStage.textContent = progress.stage.toUpperCase()
+            
+            const elapsed = (performance.now() - startTime) / 1000
+            elapsedTime.textContent = `${elapsed.toFixed(1)}s`
+            
+            if (progress.estimatedTimeRemaining > 0) {
+                const eta = progress.estimatedTimeRemaining / 1000
+                timeRemaining.textContent = eta < 1 ? '< 1s' : `${eta.toFixed(1)}s`
+            } else {
+                timeRemaining.textContent = '--'
+            }
+            
+            // Color coding for progress bar
+            let color = '#00ff41'
+            if (progress.progress < 30) color = '#ff6b6b'
+            else if (progress.progress < 70) color = '#feca57'
+            
+            progressFill.style.backgroundColor = color
+        }
+
+        // Initial log
+        gameEngine.log('🔧 Loading system demo initialized')
+        gameEngine.log('📋 This demonstrates:')
+        gameEngine.log('  • Pre-loading chunks with progress tracking')
+        gameEngine.log('  • Smart chunk loading at world boundaries')
+        gameEngine.log('  • Performance monitoring and cooldowns')
+    </script>
+</body>
+</html>
