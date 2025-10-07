@@ -159,6 +159,10 @@ export class GameEngine {
     return this.inventorySystem
   }
 
+  getRenderer() {
+    return this.renderer
+  }
+
   // Cleanup
   destroy() {
     this.stop()
