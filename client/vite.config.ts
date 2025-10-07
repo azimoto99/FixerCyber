@@ -18,14 +18,24 @@ export default defineConfig({
       },
     },
   },
+  build: {
+    outDir: 'dist',
+    sourcemap: true,
+    assetsDir: 'assets',
+    rollupOptions: {
+      output: {
+        manualChunks: undefined,
+      },
+    },
+  },
   preview: {
     host: '0.0.0.0',
     port: process.env.PORT ? parseInt(process.env.PORT) : 3000,
     allowedHosts: ['www.fixer.gg', 'fixer.gg', 'localhost'],
-  },
-  build: {
-    outDir: 'dist',
-    sourcemap: true,
+    headers: {
+      'Cross-Origin-Embedder-Policy': 'require-corp',
+      'Cross-Origin-Opener-Policy': 'same-origin',
+    },
   },
 })
 
