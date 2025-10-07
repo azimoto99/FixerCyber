@@ -48,13 +48,22 @@ export class WorldGenerator {
     // Generate city plan for this chunk
     const cityPlan = this.generateCityPlan(x, y, districtType, random)
 
+    // Place content
+    const buildings = this.placeBuildingsInBlocks(cityPlan, districtType, random)
+    const roads = this.convertStreetsToRoads(cityPlan.streets)
+
+    // Tile and collision maps
+    const { tileMap, collisionMap } = this.generateTileAndCollisionMaps(x, y, buildings, roads, districtType)
+
     const chunk = {
       id: this.generateChunkId(x, y),
       x,
       y,
       districtType,
-      buildings: this.placeBuildingsInBlocks(cityPlan, districtType, random),
-      roads: this.convertStreetsToRoads(cityPlan.streets),
+      buildings,
+      roads,
+      tileMap,
+      collisionMap,
       npcs: this.generateNPCs(random, districtType),
       loot: this.generateLoot(random, districtType),
       infrastructure: cityPlan.infrastructure,
@@ -703,6 +712,100 @@ export class WorldGenerator {
 
 
 
+
+  // Generate tile and collision maps for a chunk (20x20 tiles, 50px per tile)
+  private static generateTileAndCollisionMaps(
+    chunkX: number,
+    chunkY: number,
+    buildings: any[],
+    roads: any[],
+    districtType: string
+  ): { tileMap: string[][], collisionMap: boolean[][] } {
+    const tilesPerChunk = 20
+    const tileMap: string[][] = Array.from({ length: tilesPerChunk }, () => Array(tilesPerChunk).fill('concrete'))
+    const collisionMap: boolean[][] = Array.from({ length: tilesPerChunk }, () => Array(tilesPerChunk).fill(false))
+
+    const baseX = chunkX * this.CHUNK_SIZE
+    const baseY = chunkY * this.CHUNK_SIZE
+    const tileSize = this.CHUNK_SIZE / tilesPerChunk // 50
+
+    // Helper: point inside rect (for buildings defined as position/size)
+    const pointInRect = (px: number, py: number, bx: number, by: number, bw: number, bh: number) => {
+      return px >= bx && px <= bx + bw && py >= by && py <= by + bh
+    }
+
+    // Helper: distance from point to segment
+    const distToSegment = (px: number, py: number, x1: number, y1: number, x2: number, y2: number) => {
+      const A = px - x1
+      const B = py - y1
+      const C = x2 - x1
+      const D = y2 - y1
+      const dot = A * C + B * D
+      const lenSq = C * C + D * D
+      let t = lenSq ? dot / lenSq : 0
+      t = Math.max(0, Math.min(1, t))
+      const projX = x1 + t * C
+      const projY = y1 + t * D
+      const dx = px - projX
+      const dy = py - projY
+      return Math.sqrt(dx * dx + dy * dy)
+    }
+
+    // Precompute: buildings in local chunk coords (0..CHUNK_SIZE)
+    const localBuildings = buildings.map(b => ({
+      x: (b.position?.x ?? b.x ?? 0),
+      y: (b.position?.y ?? b.y ?? 0),
+      w: (b.size?.x ?? b.width ?? 40),
+      h: (b.size?.y ?? b.height ?? 40)
+    }))
+
+    // For each tile, decide type and collision
+    for (let ty = 0; ty < tilesPerChunk; ty++) {
+      for (let tx = 0; tx < tilesPerChunk; tx++) {
+        const centerX = baseX + (tx + 0.5) * tileSize
+        const centerY = baseY + (ty + 0.5) * tileSize
+
+        // Streets/sidewalks based on roads
+        let minRoadDist = Infinity
+        let roadHalfWidth = 0
+        for (const r of roads) {
+          const d = distToSegment(centerX, centerY, r.start.x, r.start.y, r.end.x, r.end.y)
+          if (d < minRoadDist) {
+            minRoadDist = d
+            roadHalfWidth = (r.width ?? 20) / 2
+          }
+        }
+
+        // Default ground by district
+        let baseType = 'concrete'
+        if (districtType === 'residential' && Math.random() < 0.08) baseType = 'grass'
+        if (districtType === 'industrial' && Math.random() < 0.06) baseType = 'dirt'
+
+        let tileType = baseType
+        
+        if (minRoadDist <= roadHalfWidth) {
+          tileType = 'street'
+        } else if (minRoadDist <= roadHalfWidth + 12) {
+          tileType = 'sidewalk'
+        }
+
+        // Buildings block tiles
+        const localX = (tx + 0.5) * tileSize
+        const localY = (ty + 0.5) * tileSize
+        for (const b of localBuildings) {
+          if (pointInRect(localX, localY, b.x, b.y, b.w, b.h)) {
+            tileType = 'building'
+            collisionMap[ty][tx] = true
+            break
+          }
+        }
+
+        tileMap[ty][tx] = tileType
+      }
+    }
+
+    return { tileMap, collisionMap }
+  }
 
   // Generate NPCs for a chunk
   private static generateNPCs(random: () => number, districtType: string): any[] {

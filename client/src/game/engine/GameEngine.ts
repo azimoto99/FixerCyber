@@ -1,5 +1,5 @@
 // Core game engine
-import { Renderer } from './Renderer'
+import { IsometricRenderer } from './IsometricRenderer'
 import { InputManager } from './InputManager'
 import { AudioManager } from './AudioManager'
 import { WorldSystem } from '../systems/WorldSystem'
@@ -7,12 +7,12 @@ import { CombatSystem } from '../systems/CombatSystem'
 import { ContractSystem } from '../systems/ContractSystem'
 import { HackingSystem } from '../systems/HackingSystem'
 import { InventorySystem } from '../systems/InventorySystem'
-import { MovementSystem } from '../systems/MovementSystem'
+import { IsometricMovementSystem } from '../systems/IsometricMovementSystem'
 import { UISystem } from '../systems/UISystem'
 import { LoadingSystem, LoadingProgress } from '../systems/LoadingSystem'
 
 export class GameEngine {
-  private renderer: Renderer
+  private renderer: IsometricRenderer
   private inputManager: InputManager
   private audioManager: AudioManager
   private worldSystem: WorldSystem
@@ -20,7 +20,7 @@ export class GameEngine {
   private contractSystem: ContractSystem
   private hackingSystem: HackingSystem
   private inventorySystem: InventorySystem
-  private movementSystem: MovementSystem
+  private movementSystem: IsometricMovementSystem
   private uiSystem: UISystem
   private loadingSystem: LoadingSystem
   
@@ -36,7 +36,7 @@ export class GameEngine {
   private chunkLoadCooldown = 2000 // 2 second cooldown between chunk loads
 
   constructor(canvas: HTMLCanvasElement) {
-    this.renderer = new Renderer(canvas)
+    this.renderer = new IsometricRenderer(canvas)
     this.inputManager = new InputManager(canvas)
     this.audioManager = new AudioManager()
     this.worldSystem = new WorldSystem()
@@ -46,7 +46,7 @@ export class GameEngine {
     
     // Pass worldSystem to systems that need collision detection
     this.combatSystem = new CombatSystem(this.worldSystem)
-    this.movementSystem = new MovementSystem(this.worldSystem)
+    this.movementSystem = new IsometricMovementSystem(this.worldSystem)
     
     this.contractSystem = new ContractSystem()
     this.hackingSystem = new HackingSystem()
@@ -175,12 +175,8 @@ export class GameEngine {
     const mousePos = this.inputManager.getMousePosition()
     
     if (combatAction === 'shoot') {
-      // Convert screen coordinates to world coordinates
-      const camera = this.renderer.getCamera()
-      const worldTarget = {
-        x: (mousePos.x - this.renderer.canvas.width / 2) / camera.zoom + camera.x,
-        y: (mousePos.y - this.renderer.canvas.height / 2) / camera.zoom + camera.y
-      }
+      // Convert screen coordinates to world coordinates using isometric projection
+      const worldTarget = this.renderer.screenToWorld(mousePos.x, mousePos.y)
       
       const shootData = {
         playerId: 'demo-player',
@@ -226,10 +222,13 @@ export class GameEngine {
         const currentCamera = this.renderer?.getCamera()
         if (!currentCamera) return
         
-        const lerpFactor = 0.15 // More responsive camera
+        const lerpFactor = 0.2 // Snappier camera for ARPG feel
         
-        const targetX = playerPosition.x
-        const targetY = playerPosition.y
+        // Add slight camera lead based on player velocity (Diablo-like feel)
+        const vel = this.movementSystem.getPlayerVelocity?.()
+        const leadScale = 0.15
+        const targetX = playerPosition.x + (vel ? vel.x * leadScale : 0)
+        const targetY = playerPosition.y + (vel ? vel.y * leadScale : 0)
         
         // Safety checks for valid numbers
         if (!isFinite(targetX) || !isFinite(targetY)) return
@@ -383,6 +382,9 @@ export class GameEngine {
       // Get current player position for interaction feedback
       const playerPosition = this.movementSystem?.getPlayerPosition() || { x: 0, y: 0 }
       
+      // Optional player light to improve readability
+      this.renderer?.addLight({ x: playerPosition.x, y: playerPosition.y, z: 50, intensity: 0.6, color: '#44aaff', radius: 180 })
+
       // Render world with player position for interaction feedback
       const worldState = this.worldSystem?.getWorldState()
       if (worldState) {
@@ -555,11 +557,8 @@ export class GameEngine {
   }
   
   private screenToWorld(worldPos: { x: number; y: number }) {
-    const camera = this.renderer.getCamera()
-    return {
-      x: (worldPos.x - camera.x) * camera.zoom + this.renderer.canvas.width / 2,
-      y: (worldPos.y - camera.y) * camera.zoom + this.renderer.canvas.height / 2
-    }
+    // Convert a world position (pixels) to screen coordinates using the isometric renderer
+    return this.renderer.worldToScreen({ x: worldPos.x, y: worldPos.y })
   }
   
   getMovementSystem() {

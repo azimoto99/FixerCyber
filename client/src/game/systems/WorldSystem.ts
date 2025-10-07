@@ -101,7 +101,10 @@ export class WorldSystem extends EventEmitter {
           buildings: generatedChunk.buildings,
           roads: generatedChunk.roads,
           npcs: generatedChunk.npcs,
-          loot: generatedChunk.loot
+          loot: generatedChunk.loot,
+          tileMap: generatedChunk.tileMap,
+          collisionMap: generatedChunk.collisionMap,
+          infrastructure: generatedChunk.infrastructure
         },
         generatedAt: new Date(),
         lastAccessed: new Date()
@@ -133,6 +136,24 @@ export class WorldSystem extends EventEmitter {
   
   getChunks() {
     return this.chunks.values()
+  }
+
+  // Tile/collision access
+  getTileAt(pos: { x: number, y: number }): string | null {
+    const CHUNK_SIZE = 1000
+    const TILE_SIZE = 50
+    const chunkX = Math.floor(pos.x / CHUNK_SIZE)
+    const chunkY = Math.floor(pos.y / CHUNK_SIZE)
+    const chunkId = `chunk_${chunkX}_${chunkY}`
+    const chunk = this.getChunk(chunkId)
+    if (!chunk) return null
+
+    const localX = pos.x - chunkX * CHUNK_SIZE
+    const localY = pos.y - chunkY * CHUNK_SIZE
+    const tileX = Math.max(0, Math.min(19, Math.floor(localX / TILE_SIZE)))
+    const tileY = Math.max(0, Math.min(19, Math.floor(localY / TILE_SIZE)))
+    const tileMap = chunk.generatedData?.tileMap || chunk.tileMap
+    return tileMap && tileMap[tileY] ? tileMap[tileY][tileX] : null
   }
 
   // Player management
@@ -538,15 +559,29 @@ export class WorldSystem extends EventEmitter {
   
   // Collision Detection System
   isBlocked(position: Vector2): boolean {
-    // Check collision with buildings
-    if (this.isCollidingWithBuildings(position)) {
-      return true
+    const CHUNK_SIZE = 1000
+    const TILE_SIZE = 50
+
+    const chunkX = Math.floor(position.x / CHUNK_SIZE)
+    const chunkY = Math.floor(position.y / CHUNK_SIZE)
+    const chunkId = `chunk_${chunkX}_${chunkY}`
+    let chunk = this.getChunk(chunkId)
+    if (!chunk) {
+      chunk = this.generateChunkIfNeeded(chunkX, chunkY)
     }
-    
-    // For now, roads don't block movement
-    // Could add specific blocked areas or walls here
-    
-    return false
+    if (chunk) {
+      const localX = position.x - chunkX * CHUNK_SIZE
+      const localY = position.y - chunkY * CHUNK_SIZE
+      const tileX = Math.max(0, Math.min(19, Math.floor(localX / TILE_SIZE)))
+      const tileY = Math.max(0, Math.min(19, Math.floor(localY / TILE_SIZE)))
+      const collision = chunk.generatedData?.collisionMap || chunk.collisionMap
+      if (collision && collision[tileY] && typeof collision[tileY][tileX] === 'boolean') {
+        return collision[tileY][tileX]
+      }
+    }
+
+    // Fallback to building rect check if no collision map
+    return this.isCollidingWithBuildings(position)
   }
 
   private isCollidingWithBuildings(position: Vector2): boolean {
