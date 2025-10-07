@@ -156,11 +156,13 @@ export class GameEngine {
     const demoPlayer = {
       id: 'demo-player',
       username: 'TestPlayer',
-      position: { x: 0, y: 0 },
+      position: { x: 500, y: 500 },  // Start at center of first chunk
       health: 100,
       credits: 1000,
       isAlive: true
     }
+    
+    console.log('Initializing demo player at:', demoPlayer.position)
     
     // Set player in movement system
     this.movementSystem.setPlayer(demoPlayer)
@@ -170,6 +172,8 @@ export class GameEngine {
     
     // Initialize player in combat system
     this.combatSystem.initializePlayer(demoPlayer.id, 100, 0)
+    
+    console.log('Player initialized, world has players:', this.worldSystem.getPlayers().length)
   }
   
   private processCombatInput() {
@@ -404,8 +408,11 @@ export class GameEngine {
       
       // Render players
       const players = this.worldSystem?.getPlayers()
-      if (players) {
+      if (players && players.length > 0) {
+        console.log('Rendering players:', players.length, 'at positions:', players.map(p => p.position))
         this.renderer?.renderPlayers(players)
+      } else {
+        console.log('No players to render')
       }
       
       // Render projectiles

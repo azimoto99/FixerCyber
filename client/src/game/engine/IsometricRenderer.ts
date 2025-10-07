@@ -1459,28 +1459,33 @@ export class IsometricRenderer {
     const topLeft = this.screenToWorld(0, 0)
     const bottomRight = this.screenToWorld(this.canvas.width, this.canvas.height)
     
+    // Expand view bounds significantly to prevent culling issues
+    const margin = 500 // pixels of margin
     return {
-      left: topLeft.x - 5,
-      right: bottomRight.x + 5,
-      top: topLeft.y - 5,
-      bottom: bottomRight.y + 5
+      left: topLeft.x - margin,
+      right: bottomRight.x + margin,
+      top: topLeft.y - margin,
+      bottom: bottomRight.y + margin
     }
   }
 
   private isChunkInView(chunk: any, viewBounds: any): boolean {
-    const chunkSize = 20 // tiles
-    return !(chunk.x * chunkSize > viewBounds.right ||
-             (chunk.x + 1) * chunkSize < viewBounds.left ||
-             chunk.y * chunkSize > viewBounds.bottom ||
-             (chunk.y + 1) * chunkSize < viewBounds.top)
+    const chunkSize = 1000 // world units per chunk
+    const chunkLeft = chunk.x * chunkSize
+    const chunkRight = (chunk.x + 1) * chunkSize
+    const chunkTop = chunk.y * chunkSize
+    const chunkBottom = (chunk.y + 1) * chunkSize
+    
+    return !(chunkRight < viewBounds.left ||
+             chunkLeft > viewBounds.right ||
+             chunkBottom < viewBounds.top ||
+             chunkTop > viewBounds.bottom)
   }
 
   private isInViewBounds(obj: any, viewBounds: any): boolean {
-    const objTileX = obj.x / 50
-    const objTileY = obj.y / 50
-    
-    return objTileX >= viewBounds.left && objTileX <= viewBounds.right &&
-           objTileY >= viewBounds.top && objTileY <= viewBounds.bottom
+    // obj.x and obj.y are already in world pixels
+    return obj.x >= viewBounds.left && obj.x <= viewBounds.right &&
+           obj.y >= viewBounds.top && obj.y <= viewBounds.bottom
   }
 
 

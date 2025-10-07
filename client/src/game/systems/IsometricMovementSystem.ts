@@ -139,8 +139,13 @@ export class IsometricMovementSystem {
       this.player.position.y = newPosition.y
     }
 
+    // Update player position in world system
+    if (this.worldSystem && this.worldSystem.updatePlayer) {
+      this.worldSystem.updatePlayer(this.player.id, { position: { ...this.player.position } })
+    }
+
     // Emit movement event for other systems
-    if (this.player.isMoving) {
+    if (this.player.isMoving || Math.abs(deltaX) > 0.01 || Math.abs(deltaY) > 0.01) {
       this.emitMovementEvent()
     }
   }
