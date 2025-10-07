@@ -8,6 +8,7 @@ import { ContractSystem } from '../systems/ContractSystem'
 import { HackingSystem } from '../systems/HackingSystem'
 import { InventorySystem } from '../systems/InventorySystem'
 import { MovementSystem } from '../systems/MovementSystem'
+import { UISystem } from '../systems/UISystem'
 
 export class GameEngine {
   private renderer: Renderer
@@ -19,6 +20,7 @@ export class GameEngine {
   private hackingSystem: HackingSystem
   private inventorySystem: InventorySystem
   private movementSystem: MovementSystem
+  private uiSystem: UISystem
   
   private isRunning = false
   private lastTime = 0
@@ -39,6 +41,7 @@ export class GameEngine {
     this.contractSystem = new ContractSystem()
     this.hackingSystem = new HackingSystem()
     this.inventorySystem = new InventorySystem()
+    this.uiSystem = new UISystem(canvas, this.combatSystem)
     
     this.setupEventListeners()
     this.initializeDemoPlayer()
@@ -54,13 +57,54 @@ export class GameEngine {
       this.handlePlayerAction(data)
     })
 
+    // Combat system events
+    this.combatSystem.on('shotFired', (data: any) => {
+      console.log('Shot fired by:', data.playerId)
+    })
+    
+    this.combatSystem.on('projectileHit', (data: any) => {
+      console.log('Projectile hit:', data)
+      if (data.collision.type === 'world') {
+        // Create explosion effect for world hits
+        this.renderer.createExplosion(data.collision.position)
+      }
+    })
+    
+    this.combatSystem.on('damageDealt', (data: any) => {
+      console.log('Damage dealt:', data.damage, 'to player:', data.targetId)
+      
+      // Show damage number at target location
+      const targetPlayer = this.worldSystem.getPlayer(data.targetId)
+      if (targetPlayer) {
+        const screenPos = this.screenToWorld(targetPlayer.position)
+        this.uiSystem.addDamageNumber(screenPos.x, screenPos.y - 20, data.damage, data.damage > 50)
+      }
+    })
+    
+    this.combatSystem.on('playerKilled', (data: any) => {
+      console.log('Player killed:', data.targetId, 'by:', data.killerId)
+      
+      // Add to kill feed
+      const killerPlayer = this.worldSystem.getPlayer(data.killerId)
+      const victimPlayer = this.worldSystem.getPlayer(data.targetId)
+      if (killerPlayer && victimPlayer) {
+        this.uiSystem.addKillFeedEntry(killerPlayer.username, victimPlayer.username, 'pistol')
+      }
+      
+      // TODO: Handle respawn
+    })
+    
+    this.combatSystem.on('reloadStarted', (data: any) => {
+      console.log('Reload started for:', data.playerId)
+    })
+    
+    this.combatSystem.on('reloadComplete', (data: any) => {
+      console.log('Reload complete for:', data.playerId)
+    })
+
     // Game system events - commented out until event systems are properly implemented
     // this.worldSystem.on('chunkLoaded', (chunk) => {
     //   this.renderer.addChunk(chunk)
-    // })
-
-    // this.combatSystem.on('combatEvent', (event) => {
-    //   this.handleCombatEvent(event)
     // })
 
     // this.contractSystem.on('contractUpdate', (contract) => {
@@ -113,6 +157,53 @@ export class GameEngine {
     
     // Initialize player in combat system
     this.combatSystem.initializePlayer(demoPlayer.id, 100, 0)
+  }
+  
+  private processCombatInput() {
+    const combatAction = this.inputManager.getCombatInput()
+    const playerPosition = this.movementSystem.getPlayerPosition()
+    const mousePos = this.inputManager.getMousePosition()
+    
+    if (combatAction === 'shoot') {
+      // Convert screen coordinates to world coordinates
+      const camera = this.renderer.getCamera()
+      const worldTarget = {
+        x: (mousePos.x - this.renderer.canvas.width / 2) / camera.zoom + camera.x,
+        y: (mousePos.y - this.renderer.canvas.height / 2) / camera.zoom + camera.y
+      }
+      
+      const shootData = {
+        playerId: 'demo-player',
+        playerPosition,
+        target: worldTarget,
+        weapon: 'pistol' // Default weapon
+      }
+      
+      const result = this.combatSystem.handleShooting(shootData)
+      if (result.success) {
+        // Add muzzle flash effect
+        this.renderer.createMuzzleFlash(playerPosition)
+        console.log('Shot fired at:', worldTarget)
+      }
+    } else if (combatAction === 'reload') {
+      this.combatSystem.startReload('demo-player', 'pistol')
+      console.log('Reloading...')
+    }
+  }
+  
+  private processActionInput() {
+    const actionInput = this.inputManager.getActionInput()
+    const playerPosition = this.movementSystem.getPlayerPosition()
+    
+    if (actionInput) {
+      const actionData = {
+        type: actionInput,
+        playerId: 'demo-player',
+        position: playerPosition
+      }
+      
+      this.handlePlayerAction(actionData)
+    }
   }
   
   private updateCamera() {
@@ -181,6 +272,16 @@ export class GameEngine {
     this.hackingSystem.update(_deltaTime)
     this.inventorySystem.update(_deltaTime)
     
+    // Update UI system
+    const playerPosition = this.movementSystem.getPlayerPosition()
+    this.uiSystem.update(_deltaTime, playerPosition)
+    
+    // Handle combat input
+    this.processCombatInput()
+    
+    // Handle action input 
+    this.processActionInput()
+    
     // Update camera to follow player
     this.updateCamera()
   }
@@ -198,8 +299,11 @@ export class GameEngine {
     // Render players
     this.renderer.renderPlayers(this.worldSystem.getPlayers())
     
-    // Render UI
-    this.renderer.renderUI()
+    // Render projectiles
+    this.renderer.renderProjectiles(this.combatSystem.getProjectiles())
+    
+    // Render UI (new system replaces old crosshair/scanlines)
+    this.uiSystem.render()
   }
 
   // Public methods for external access
@@ -225,6 +329,14 @@ export class GameEngine {
 
   getRenderer() {
     return this.renderer
+  }
+  
+  private screenToWorld(worldPos: { x: number; y: number }) {
+    const camera = this.renderer.getCamera()
+    return {
+      x: (worldPos.x - camera.x) * camera.zoom + this.renderer.canvas.width / 2,
+      y: (worldPos.y - camera.y) * camera.zoom + this.renderer.canvas.height / 2
+    }
   }
   
   getMovementSystem() {

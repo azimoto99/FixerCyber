@@ -1,6 +1,6 @@
 // Enhanced 2D Canvas renderer with cyberpunk styling
 export class Renderer {
-  private canvas: HTMLCanvasElement
+  public canvas: HTMLCanvasElement
   private ctx: CanvasRenderingContext2D
   private camera: { x: number; y: number; zoom: number } = { x: 0, y: 0, zoom: 1 }
   private viewport: { left: number; right: number; top: number; bottom: number } = { left: 0, right: 0, top: 0, bottom: 0 }
@@ -77,6 +77,48 @@ export class Renderer {
     })
   }
 
+  renderProjectiles(projectiles: any[]) {
+    if (!projectiles || projectiles.length === 0) return
+    
+    projectiles.forEach(projectile => {
+      this.renderProjectile(projectile)
+    })
+  }
+  
+  private renderProjectile(projectile: any) {
+    const screenPos = this.worldToScreen(projectile.position)
+    const size = 4 * this.camera.zoom
+    
+    // Projectile trail effect
+    this.ctx.save()
+    this.ctx.shadowColor = this.getProjectileColor(projectile.weapon)
+    this.ctx.shadowBlur = 10
+    
+    // Main projectile
+    this.ctx.fillStyle = this.getProjectileColor(projectile.weapon)
+    this.ctx.beginPath()
+    this.ctx.arc(screenPos.x, screenPos.y, size, 0, Math.PI * 2)
+    this.ctx.fill()
+    
+    // Bright center
+    this.ctx.fillStyle = '#ffffff'
+    this.ctx.beginPath()
+    this.ctx.arc(screenPos.x, screenPos.y, size / 2, 0, Math.PI * 2)
+    this.ctx.fill()
+    
+    this.ctx.restore()
+  }
+  
+  private getProjectileColor(weapon: string): string {
+    const colors = {
+      pistol: '#ffff00',
+      rifle: '#ff6b35',
+      smg: '#ff0080',
+      cyber: '#00ffff'
+    }
+    return colors[weapon as keyof typeof colors] || '#ffffff'
+  }
+
   renderUI() {
     // Render UI elements
     this.drawEnhancedCrosshair()
@@ -131,7 +173,7 @@ export class Renderer {
   private renderChunk(chunk: any, playerPosition?: {x: number, y: number}) {
     if (!chunk.generatedData) return
 
-    const { buildings, roads, npcs } = chunk.generatedData
+    const { buildings, roads, npcs, infrastructure } = chunk.generatedData
 
     // Render roads first (behind everything)
     if (roads) {
@@ -140,10 +182,17 @@ export class Renderer {
       })
     }
 
-    // Render buildings
+    // Render infrastructure (streetlights, signs, etc.)
+    if (infrastructure) {
+      infrastructure.forEach((item: any) => {
+        this.renderInfrastructure(item)
+      })
+    }
+
+    // Render buildings with 3D effect
     if (buildings) {
       buildings.forEach((building: any) => {
-        this.renderBuilding(building, playerPosition)
+        this.renderBuilding3D(building, playerPosition)
       })
     }
 
@@ -155,7 +204,9 @@ export class Renderer {
     }
   }
 
-  private renderBuilding(building: any, playerPosition?: {x: number, y: number}) {
+
+  // New 3D building rendering method
+  private renderBuilding3D(building: any, playerPosition?: {x: number, y: number}) {
     const screenPos = this.worldToScreen(building.position)
     const screenSize = {
       x: building.size.x * this.camera.zoom,
@@ -173,59 +224,77 @@ export class Renderer {
     
     if (!this.isInViewport(screenPos, screenSize)) return
 
-    // Enhanced shadow/depth effect
-    this.ctx.fillStyle = 'rgba(0, 0, 0, 0.5)'
-    this.ctx.fillRect(screenPos.x + 4, screenPos.y + 4, screenSize.x, screenSize.y)
+    // Calculate 3D projection
+    const height = (building.height || 40) * this.camera.zoom * 0.5
+    const offsetX = height * 0.3
+    const offsetY = height * 0.3
 
-    // Building body with district-based colors - much more visible
+    // Render building with 3D effect
     const buildingColor = this.getBuildingColor(building)
+    
+    // Top face (isometric top)
+    this.ctx.fillStyle = this.lightenColor(buildingColor.fill, 0.3)
+    this.ctx.beginPath()
+    this.ctx.moveTo(screenPos.x, screenPos.y - offsetY)
+    this.ctx.lineTo(screenPos.x + screenSize.x, screenPos.y - offsetY)
+    this.ctx.lineTo(screenPos.x + screenSize.x + offsetX, screenPos.y - offsetY - offsetX)
+    this.ctx.lineTo(screenPos.x + offsetX, screenPos.y - offsetY - offsetX)
+    this.ctx.closePath()
+    this.ctx.fill()
+    
+    // Right face (side)
+    this.ctx.fillStyle = this.darkenColor(buildingColor.fill, 0.2)
+    this.ctx.beginPath()
+    this.ctx.moveTo(screenPos.x + screenSize.x, screenPos.y - offsetY)
+    this.ctx.lineTo(screenPos.x + screenSize.x + offsetX, screenPos.y - offsetY - offsetX)
+    this.ctx.lineTo(screenPos.x + screenSize.x + offsetX, screenPos.y + screenSize.y - offsetY - offsetX)
+    this.ctx.lineTo(screenPos.x + screenSize.x, screenPos.y + screenSize.y - offsetY)
+    this.ctx.closePath()
+    this.ctx.fill()
+    
+    // Front face (main face)
     this.ctx.fillStyle = buildingColor.fill
-    this.ctx.fillRect(screenPos.x, screenPos.y, screenSize.x, screenSize.y)
+    this.ctx.fillRect(screenPos.x, screenPos.y - offsetY, screenSize.x, screenSize.y)
     
-    // Strong building outline for visibility
+    // Add windows to the front face
+    this.drawBuildingWindows3D(screenPos, screenSize, building, offsetY)
+    
+    // Building outline
     this.ctx.strokeStyle = buildingColor.outline
-    this.ctx.lineWidth = 3
-    this.ctx.strokeRect(screenPos.x, screenPos.y, screenSize.x, screenSize.y)
+    this.ctx.lineWidth = 2
+    this.ctx.strokeRect(screenPos.x, screenPos.y - offsetY, screenSize.x, screenSize.y)
     
-    // Inner border for better definition
-    this.ctx.strokeStyle = buildingColor.innerBorder || '#ffffff'
-    this.ctx.lineWidth = 1
-    this.ctx.strokeRect(screenPos.x + 2, screenPos.y + 2, screenSize.x - 4, screenSize.y - 4)
-    
-    // Hackable building glow effect - more prominent
+    // Hackable building glow effect
     if (building.hackable) {
       this.ctx.save()
       this.ctx.shadowColor = '#ff0080'
       this.ctx.shadowBlur = 15 + Math.sin(this.time * 0.003) * 8
       this.ctx.strokeStyle = '#ff0080'
       this.ctx.lineWidth = 3
-      this.ctx.strokeRect(screenPos.x - 2, screenPos.y - 2, screenSize.x + 4, screenSize.y + 4)
+      this.ctx.strokeRect(screenPos.x - 2, screenPos.y - offsetY - 2, screenSize.x + 4, screenSize.y + 4)
       this.ctx.restore()
     }
     
-    // Collision boundary visualization (subtle red outline)
-    this.ctx.strokeStyle = 'rgba(255, 100, 100, 0.3)'
-    this.ctx.lineWidth = 1
-    this.ctx.setLineDash([5, 5])
-    this.ctx.strokeRect(screenPos.x - 1, screenPos.y - 1, screenSize.x + 2, screenSize.y + 2)
-    this.ctx.setLineDash([])
-    
-    // Windows/details
-    this.drawBuildingDetails(screenPos, screenSize, building)
-
-    // Security level indicator
-    if (building.securityLevel > 0) {
-      this.drawSecurityIndicator(screenPos, building.securityLevel)
-    }
-    
-    // Building type label (for debugging/clarity)
-    if (screenSize.x > 30 && screenSize.y > 30) {
-      this.drawBuildingLabel(screenPos, screenSize, building)
+    // Building type label
+    if (screenSize.x > 40 && screenSize.y > 40) {
+      this.ctx.fillStyle = '#ffffff'
+      this.ctx.font = `${Math.max(10, screenSize.y * 0.08)}px monospace`
+      this.ctx.textAlign = 'center'
+      this.ctx.textBaseline = 'middle'
+      this.ctx.shadowColor = '#000000'
+      this.ctx.shadowBlur = 2
+      
+      const label = building.type || 'BUILDING'
+      this.ctx.fillText(label.toUpperCase(), screenPos.x + screenSize.x / 2, screenPos.y - offsetY + screenSize.y / 2)
     }
     
     // Interaction feedback when nearby
     if (isNearby && (building.hackable || building.type === 'entrance')) {
-      this.drawInteractionPrompt(screenPos, screenSize, building)
+      this.drawInteractionPrompt(
+        { x: screenPos.x, y: screenPos.y - offsetY }, 
+        screenSize, 
+        building
+      )
     }
   }
 
@@ -483,27 +552,6 @@ export class Renderer {
            { fill: '#555555', outline: '#888888', innerBorder: '#777777' }
   }
   
-  private drawBuildingLabel(pos: {x: number, y: number}, size: {x: number, y: number}, building: any) {
-    const centerX = pos.x + size.x / 2
-    const centerY = pos.y + size.y / 2
-    
-    // Building type text
-    this.ctx.save()
-    this.ctx.fillStyle = '#ffffff'
-    this.ctx.font = `${Math.max(10, size.y * 0.1)}px monospace`
-    this.ctx.textAlign = 'center'
-    this.ctx.textBaseline = 'middle'
-    
-    // Text shadow for better visibility
-    this.ctx.shadowColor = '#000000'
-    this.ctx.shadowBlur = 2
-    this.ctx.shadowOffsetX = 1
-    this.ctx.shadowOffsetY = 1
-    
-    const label = building.type || 'BUILDING'
-    this.ctx.fillText(label.toUpperCase(), centerX, centerY)
-    this.ctx.restore()
-  }
   
   private drawInteractionPrompt(pos: {x: number, y: number}, size: {x: number, y: number}, building: any) {
     const centerX = pos.x + size.x / 2
@@ -527,48 +575,142 @@ export class Renderer {
     
     this.ctx.restore()
   }
-
-  private drawBuildingDetails(pos: {x: number, y: number}, size: {x: number, y: number}, building: any) {
-    if (size.x < 20 || size.y < 20) return // Too small to show details
+  
+  // Infrastructure rendering
+  private renderInfrastructure(item: any) {
+    const screenPos = this.worldToScreen(item.position)
     
-    const windowColor = building.hackable ? '#ff0080' : '#ffff00'
+    if (!this.isInViewport(screenPos)) return
+    
+    switch (item.type) {
+      case 'streetlight':
+        this.renderStreetlight(screenPos, item)
+        break
+      case 'sign':
+      case 'billboard':
+        this.renderSign(screenPos, item)
+        break
+      case 'debris':
+        this.renderDebris(screenPos, item)
+        break
+    }
+  }
+  
+  private renderStreetlight(screenPos: {x: number, y: number}, light: any) {
+    const height = (light.height || 20) * this.camera.zoom * 0.8
+    
+    // Streetlight pole
+    this.ctx.strokeStyle = '#666666'
+    this.ctx.lineWidth = 3 * this.camera.zoom
+    this.ctx.beginPath()
+    this.ctx.moveTo(screenPos.x, screenPos.y)
+    this.ctx.lineTo(screenPos.x, screenPos.y - height)
+    this.ctx.stroke()
+    
+    // Light fixture
+    this.ctx.fillStyle = '#444444'
+    this.ctx.fillRect(screenPos.x - 6, screenPos.y - height - 8, 12, 8)
+    
+    // Light glow
+    if (light.lightColor) {
+      this.ctx.save()
+      this.ctx.globalAlpha = 0.3
+      this.ctx.shadowColor = light.lightColor
+      this.ctx.shadowBlur = 20
+      this.ctx.fillStyle = light.lightColor
+      this.ctx.beginPath()
+      this.ctx.arc(screenPos.x, screenPos.y - height - 4, 8, 0, Math.PI * 2)
+      this.ctx.fill()
+      this.ctx.restore()
+    }
+  }
+  
+  private renderSign(screenPos: {x: number, y: number}, sign: any) {
+    const width = (sign.size?.x || 30) * this.camera.zoom
+    const height = (sign.size?.y || 15) * this.camera.zoom
+    
+    // Sign background
+    this.ctx.fillStyle = sign.type === 'billboard' ? '#ff0080' : '#333333'
+    this.ctx.fillRect(screenPos.x - width/2, screenPos.y - height/2, width, height)
+    
+    // Sign border
+    this.ctx.strokeStyle = '#ffffff'
+    this.ctx.lineWidth = 1
+    this.ctx.strokeRect(screenPos.x - width/2, screenPos.y - height/2, width, height)
+    
+    // Sign text
+    if (sign.text && width > 20) {
+      this.ctx.fillStyle = '#ffffff'
+      this.ctx.font = `${Math.max(8, height * 0.4)}px monospace`
+      this.ctx.textAlign = 'center'
+      this.ctx.textBaseline = 'middle'
+      this.ctx.fillText(sign.text, screenPos.x, screenPos.y)
+    }
+  }
+  
+  private renderDebris(screenPos: {x: number, y: number}, debris: any) {
+    const size = (debris.size || 4) * this.camera.zoom
+    
+    this.ctx.fillStyle = debris.debrisType === 'trash' ? '#444444' : '#666666'
+    this.ctx.fillRect(screenPos.x - size/2, screenPos.y - size/2, size, size)
+  }
+  
+  // 3D window rendering for buildings
+  private drawBuildingWindows3D(pos: {x: number, y: number}, size: {x: number, y: number}, building: any, offsetY: number) {
+    if (size.x < 30 || size.y < 30) return
+    
+    const windowColor = building.hackable ? '#ff0080' : '#ffff88'
     this.ctx.fillStyle = windowColor
     
-    // Simple window pattern
-    const windowSize = 3
-    const windowSpacing = 8
+    const windowSize = Math.max(2, 4 * this.camera.zoom)
+    const windowSpacing = Math.max(8, 12 * this.camera.zoom)
     
-    for (let x = pos.x + 5; x < pos.x + size.x - windowSize; x += windowSpacing) {
-      for (let y = pos.y + 5; y < pos.y + size.y - windowSize; y += windowSpacing) {
-        if (Math.random() > 0.3) { // Random windows
+    // Create window grid
+    for (let x = pos.x + windowSpacing; x < pos.x + size.x - windowSize; x += windowSpacing) {
+      for (let y = pos.y - offsetY + windowSpacing; y < pos.y - offsetY + size.y - windowSize; y += windowSpacing) {
+        if (Math.random() > 0.2) { // Most windows are lit
           this.ctx.fillRect(x, y, windowSize, windowSize)
+          
+          // Add slight glow to windows
+          if (building.district === 'corporate') {
+            this.ctx.save()
+            this.ctx.globalAlpha = 0.3
+            this.ctx.shadowColor = windowColor
+            this.ctx.shadowBlur = 3
+            this.ctx.fillRect(x, y, windowSize, windowSize)
+            this.ctx.restore()
+          }
         }
       }
     }
   }
-
-  private drawSecurityIndicator(pos: {x: number, y: number}, level: number) {
-    const barWidth = Math.min(level * 10, 50)
-    const barHeight = 4
-    
-    // Background
-    this.ctx.fillStyle = '#330000'
-    this.ctx.fillRect(pos.x, pos.y - 8, 50, barHeight)
-    
-    // Security level bar
-    const colors = ['#00ff00', '#ffff00', '#ff8800', '#ff0000', '#ff00ff']
-    this.ctx.fillStyle = colors[Math.min(level - 1, colors.length - 1)]
-    this.ctx.fillRect(pos.x, pos.y - 8, barWidth, barHeight)
-    
-    // Glowing effect for high security
-    if (level >= 4) {
-      this.ctx.save()
-      this.ctx.shadowColor = this.ctx.fillStyle as string
-      this.ctx.shadowBlur = 5
-      this.ctx.fillRect(pos.x, pos.y - 8, barWidth, barHeight)
-      this.ctx.restore()
+  
+  // Color manipulation helpers
+  private lightenColor(color: string, _amount: number): string {
+    // Simple color lightening - in a full implementation this would use proper color parsing
+    const colors = {
+      '#2a3d66': '#4a5d86',
+      '#4a4a70': '#6a6a90',
+      '#663d1a': '#865d3a',
+      '#2a1f2a': '#4a3f4a',
+      '#4d2f2f': '#6d4f4f'
     }
+    return colors[color as keyof typeof colors] || color
   }
+  
+  private darkenColor(color: string, _amount: number): string {
+    // Simple color darkening
+    const colors = {
+      '#2a3d66': '#1a2d56',
+      '#4a4a70': '#3a3a60',
+      '#663d1a': '#562d0a',
+      '#2a1f2a': '#1a0f1a',
+      '#4d2f2f': '#3d1f1f'
+    }
+    return colors[color as keyof typeof colors] || color
+  }
+
+
 
   private drawScanLines() {
     this.ctx.save()
