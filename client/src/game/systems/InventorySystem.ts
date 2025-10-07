@@ -1,5 +1,21 @@
 // Grid-based inventory system
-import { EventEmitter } from 'events'
+// Simple event emitter implementation
+class EventEmitter {
+  private events: { [key: string]: Function[] } = {}
+
+  on(event: string, listener: Function) {
+    if (!this.events[event]) {
+      this.events[event] = []
+    }
+    this.events[event].push(listener)
+  }
+
+  emit(event: string, ...args: any[]) {
+    if (this.events[event]) {
+      this.events[event].forEach(listener => listener(...args))
+    }
+  }
+}
 import { InventoryItem, ItemType, Vector2 } from '../../types/game'
 
 export class InventorySystem extends EventEmitter {
@@ -229,6 +245,26 @@ export class InventorySystem extends EventEmitter {
     // Weapon usage is handled by combat system
     this.emit('weaponUsed', { item })
     return true
+  }
+
+  // Handle inventory actions
+  handleInventoryAction(action: string, data: any): boolean {
+    switch (action) {
+      case 'move':
+        return this.moveItem(data.itemId, data.newPosition)
+      case 'rotate':
+        return this.rotateItem(data.itemId)
+      case 'use':
+        return this.useItem(data.itemId)
+      case 'drop':
+        return this.dropItem(data.itemId)
+      case 'equip':
+        return this.equipItem(data.itemId, data.slot)
+      case 'unequip':
+        return this.unequipItem(data.slot)
+      default:
+        return false
+    }
   }
 
   // Search and filtering

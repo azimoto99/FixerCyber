@@ -9,7 +9,6 @@ import { HackingSystem } from '../systems/HackingSystem'
 import { InventorySystem } from '../systems/InventorySystem'
 
 export class GameEngine {
-  private canvas: HTMLCanvasElement
   private renderer: Renderer
   private inputManager: InputManager
   private audioManager: AudioManager
@@ -26,7 +25,6 @@ export class GameEngine {
   private frameTime = 1000 / this.fps
 
   constructor(canvas: HTMLCanvasElement) {
-    this.canvas = canvas
     this.renderer = new Renderer(canvas)
     this.inputManager = new InputManager(canvas)
     this.audioManager = new AudioManager()
@@ -49,18 +47,18 @@ export class GameEngine {
       this.handlePlayerAction(data)
     })
 
-    // Game system events
-    this.worldSystem.on('chunkLoaded', (chunk) => {
-      this.renderer.addChunk(chunk)
-    })
+    // Game system events - commented out until event systems are properly implemented
+    // this.worldSystem.on('chunkLoaded', (chunk) => {
+    //   this.renderer.addChunk(chunk)
+    // })
 
-    this.combatSystem.on('combatEvent', (event) => {
-      this.handleCombatEvent(event)
-    })
+    // this.combatSystem.on('combatEvent', (event) => {
+    //   this.handleCombatEvent(event)
+    // })
 
-    this.contractSystem.on('contractUpdate', (contract) => {
-      this.handleContractUpdate(contract)
-    })
+    // this.contractSystem.on('contractUpdate', (contract) => {
+    //   this.handleContractUpdate(contract)
+    // })
   }
 
   private handlePlayerAction(data: any) {
@@ -117,13 +115,13 @@ export class GameEngine {
     requestAnimationFrame((time) => this.gameLoop(time))
   }
 
-  private update(deltaTime: number) {
+  private update(_deltaTime: number) {
     // Update all game systems
-    this.worldSystem.update(deltaTime)
-    this.combatSystem.update(deltaTime)
-    this.contractSystem.update(deltaTime)
-    this.hackingSystem.update(deltaTime)
-    this.inventorySystem.update(deltaTime)
+    this.worldSystem.update(_deltaTime)
+    this.combatSystem.update(_deltaTime)
+    this.contractSystem.update(_deltaTime)
+    this.hackingSystem.update(_deltaTime)
+    this.inventorySystem.update(_deltaTime)
   }
 
   private render() {

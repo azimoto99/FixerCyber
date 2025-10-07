@@ -2,6 +2,10 @@
 export interface Vector2 {
   x: number
   y: number
+  width?: number
+  height?: number
+  distanceTo?(other: Vector2): number
+  toJSON?(): { x: number; y: number }
 }
 
 export interface Player {
@@ -39,7 +43,9 @@ export enum ItemType {
   AUGMENTATION = 'augmentation',
   CONSUMABLE = 'consumable',
   MATERIAL = 'material',
-  DATA = 'data'
+  DATA = 'data',
+  ARMOR = 'armor',
+  UTILITY = 'utility'
 }
 
 export enum Rarity {

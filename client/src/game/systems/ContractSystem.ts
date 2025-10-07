@@ -1,6 +1,22 @@
 // Contract system for managing AI fixer contracts
-import { EventEmitter } from 'events'
-import { Contract, ContractType, ContractStatus } from '../../types/contracts'
+// Simple event emitter implementation
+class EventEmitter {
+  private events: { [key: string]: Function[] } = {}
+
+  on(event: string, listener: Function) {
+    if (!this.events[event]) {
+      this.events[event] = []
+    }
+    this.events[event].push(listener)
+  }
+
+  emit(event: string, ...args: any[]) {
+    if (this.events[event]) {
+      this.events[event].forEach(listener => listener(...args))
+    }
+  }
+}
+import { Contract, ContractType, ContractStatus, AIFixer } from '../../types/contracts'
 
 export class ContractSystem extends EventEmitter {
   private activeContracts: Map<string, Contract> = new Map()
@@ -203,7 +219,8 @@ export class ContractSystem extends EventEmitter {
       reward: this.generateContractReward(type),
       timeLimit: this.getContractTimeLimit(type),
       status: ContractStatus.AVAILABLE,
-      description: this.generateContractDescription(type, fixer)
+      description: this.generateContractDescription(type, fixer),
+      createdAt: new Date()
     }
   }
 
@@ -226,6 +243,12 @@ export class ContractSystem extends EventEmitter {
         type: 'facility',
         position: { x: Math.random() * 2000 - 1000, y: Math.random() * 2000 - 1000 },
         data: { facilityType: 'security', importance: Math.floor(Math.random() * 5) + 1 }
+      },
+      [ContractType.TERRITORY_CONTROL]: {
+        id: 'territory_' + this.generateId(),
+        type: 'territory',
+        position: { x: Math.random() * 2000 - 1000, y: Math.random() * 2000 - 1000 },
+        data: { district: 'downtown', controlLevel: Math.floor(Math.random() * 5) + 1 }
       }
     }
 
@@ -237,10 +260,10 @@ export class ContractSystem extends EventEmitter {
       [ContractType.ASSASSINATION]: { credits: 5000, reputation: 50 },
       [ContractType.DATA_EXTRACTION]: { credits: 3000, reputation: 30 },
       [ContractType.SABOTAGE]: { credits: 4000, reputation: 40 },
+      [ContractType.TERRITORY_CONTROL]: { credits: 6000, reputation: 60 },
       [ContractType.ESCORT]: { credits: 2500, reputation: 25 },
       [ContractType.RECOVERY]: { credits: 3500, reputation: 35 },
-      [ContractType.SURVEILLANCE]: { credits: 2000, reputation: 20 },
-      [ContractType.TERRITORY_CONTROL]: { credits: 6000, reputation: 60 }
+      [ContractType.SURVEILLANCE]: { credits: 2000, reputation: 20 }
     }
 
     const base = baseRewards[type] || { credits: 1000, reputation: 10 }

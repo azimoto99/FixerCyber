@@ -12,6 +12,8 @@ export class Augmentation {
   public isInstalled: boolean = false
   public installationCost: number
   public requirements: any = {}
+  public durability: number = 100
+  public maxDurability: number = 100
 
   constructor(
     id: string,
@@ -33,6 +35,21 @@ export class Augmentation {
   }
 
   // Installation
+  canInstall(player: any): boolean {
+    // Check if player has enough credits
+    if (player.credits < this.installationCost) return false
+    
+    // Check if player has enough power capacity
+    if (player.powerCapacity < this.powerCost) return false
+    
+    // Check requirements
+    for (const [requirement, value] of Object.entries(this.requirements)) {
+      if (player[requirement] < value) return false
+    }
+    
+    return true
+  }
+
   install(player: any): boolean {
     if (this.isInstalled) return false
     if (!this.canInstall(player)) return false

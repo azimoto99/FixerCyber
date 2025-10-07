@@ -1,5 +1,21 @@
 // World management system
-import { EventEmitter } from 'events'
+// Simple event emitter implementation
+class EventEmitter {
+  private events: { [key: string]: Function[] } = {}
+
+  on(event: string, listener: Function) {
+    if (!this.events[event]) {
+      this.events[event] = []
+    }
+    this.events[event].push(listener)
+  }
+
+  emit(event: string, ...args: any[]) {
+    if (this.events[event]) {
+      this.events[event].forEach(listener => listener(...args))
+    }
+  }
+}
 import { Vector2 } from '../../types/game'
 
 export class WorldSystem extends EventEmitter {
