@@ -229,31 +229,27 @@ export class GameEngine {
       const playerPosition = this.movementSystem?.getPlayerPosition()
       if (!playerPosition) return
       
-      if (playerPosition.x !== 0 || playerPosition.y !== 0) {
-        // More responsive camera - less lag
-        const currentCamera = this.renderer?.getCamera()
-        if (!currentCamera) return
-        
-        const lerpFactor = 0.2 // Snappier camera for ARPG feel
-        
-        // Add slight camera lead based on player velocity (Diablo-like feel)
-        const vel = this.movementSystem.getPlayerVelocity?.()
-        const leadScale = 0.15
-        const targetX = playerPosition.x + (vel ? vel.x * leadScale : 0)
-        const targetY = playerPosition.y + (vel ? vel.y * leadScale : 0)
-        
-        // Safety checks for valid numbers
-        if (!isFinite(targetX) || !isFinite(targetY)) return
-        
-        const newX = currentCamera.x + (targetX - currentCamera.x) * lerpFactor
-        const newY = currentCamera.y + (targetY - currentCamera.y) * lerpFactor
-        
-        // Safety checks for camera position
-        if (isFinite(newX) && isFinite(newY)) {
-          this.renderer?.setCamera(newX, newY, currentCamera.zoom)
-        }
-        
-        // Smart chunk loading is handled in checkChunkBoundaries() instead
+      // Always update camera to follow player
+      const currentCamera = this.renderer?.getCamera()
+      if (!currentCamera) return
+      
+      const lerpFactor = 0.2 // Snappier camera for ARPG feel
+      
+      // Add slight camera lead based on player velocity (Diablo-like feel)
+      const vel = this.movementSystem.getPlayerVelocity?.()
+      const leadScale = 0.15
+      const targetX = playerPosition.x + (vel ? vel.x * leadScale : 0)
+      const targetY = playerPosition.y + (vel ? vel.y * leadScale : 0)
+      
+      // Safety checks for valid numbers
+      if (!isFinite(targetX) || !isFinite(targetY)) return
+      
+      const newX = currentCamera.x + (targetX - currentCamera.x) * lerpFactor
+      const newY = currentCamera.y + (targetY - currentCamera.y) * lerpFactor
+      
+      // Safety checks for camera position
+      if (isFinite(newX) && isFinite(newY)) {
+        this.renderer?.setCamera(newX, newY, currentCamera.zoom)
       }
     } catch (error) {
       console.error('GameEngine: Error updating camera:', error)
