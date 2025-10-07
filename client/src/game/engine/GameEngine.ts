@@ -207,22 +207,36 @@ export class GameEngine {
   }
   
   private updateCamera() {
-    const playerPosition = this.movementSystem.getPlayerPosition()
-    if (playerPosition.x !== 0 || playerPosition.y !== 0) {
-      // More responsive camera - less lag
-      const currentCamera = this.renderer.getCamera()
-      const lerpFactor = 0.15 // More responsive camera
+    try {
+      const playerPosition = this.movementSystem?.getPlayerPosition()
+      if (!playerPosition) return
       
-      const targetX = playerPosition.x
-      const targetY = playerPosition.y
-      
-      const newX = currentCamera.x + (targetX - currentCamera.x) * lerpFactor
-      const newY = currentCamera.y + (targetY - currentCamera.y) * lerpFactor
-      
-      this.renderer.setCamera(newX, newY, currentCamera.zoom)
-      
-      // Load chunks around player position for streaming world generation
-      this.worldSystem.loadChunksAroundPosition(playerPosition, 2)
+      if (playerPosition.x !== 0 || playerPosition.y !== 0) {
+        // More responsive camera - less lag
+        const currentCamera = this.renderer?.getCamera()
+        if (!currentCamera) return
+        
+        const lerpFactor = 0.15 // More responsive camera
+        
+        const targetX = playerPosition.x
+        const targetY = playerPosition.y
+        
+        // Safety checks for valid numbers
+        if (!isFinite(targetX) || !isFinite(targetY)) return
+        
+        const newX = currentCamera.x + (targetX - currentCamera.x) * lerpFactor
+        const newY = currentCamera.y + (targetY - currentCamera.y) * lerpFactor
+        
+        // Safety checks for camera position
+        if (isFinite(newX) && isFinite(newY)) {
+          this.renderer?.setCamera(newX, newY, currentCamera.zoom)
+        }
+        
+        // Load chunks around player position for streaming world generation
+        this.worldSystem?.loadChunksAroundPosition(playerPosition, 2)
+      }
+    } catch (error) {
+      console.error('GameEngine: Error updating camera:', error)
     }
   }
 
@@ -250,60 +264,93 @@ export class GameEngine {
   private gameLoop(currentTime: number = 0) {
     if (!this.isRunning) return
 
-    this.deltaTime = currentTime - this.lastTime
-    this.lastTime = currentTime
+    try {
+      // Calculate delta time with safety checks
+      if (this.lastTime === 0) {
+        this.deltaTime = 16 // Default to ~60fps for first frame
+      } else {
+        this.deltaTime = Math.min(currentTime - this.lastTime, 50) // Cap at 50ms to prevent large jumps
+      }
+      this.lastTime = currentTime
 
-    // Update game systems
-    this.update(this.deltaTime)
-    
-    // Render frame
-    this.render()
+      // Skip frame if deltaTime is invalid
+      if (this.deltaTime <= 0 || !isFinite(this.deltaTime)) {
+        requestAnimationFrame((time) => this.gameLoop(time))
+        return
+      }
+
+      // Update game systems
+      this.update(this.deltaTime)
+      
+      // Render frame
+      this.render()
+    } catch (error) {
+      console.error('GameEngine: Error in game loop:', error)
+      // Continue the loop even if there's an error to prevent complete freeze
+    }
     
     // Continue loop
     requestAnimationFrame((time) => this.gameLoop(time))
   }
 
   private update(_deltaTime: number) {
-    // Update all game systems
-    this.movementSystem.update(_deltaTime, this.inputManager)
-    this.worldSystem.update(_deltaTime)
-    this.combatSystem.update(_deltaTime)
-    this.contractSystem.update(_deltaTime)
-    this.hackingSystem.update(_deltaTime)
-    this.inventorySystem.update(_deltaTime)
-    
-    // Update UI system
-    const playerPosition = this.movementSystem.getPlayerPosition()
-    this.uiSystem.update(_deltaTime, playerPosition)
-    
-    // Handle combat input
-    this.processCombatInput()
-    
-    // Handle action input 
-    this.processActionInput()
-    
-    // Update camera to follow player
-    this.updateCamera()
+    try {
+      // Update all game systems with error handling
+      this.movementSystem?.update(_deltaTime, this.inputManager)
+      this.worldSystem?.update(_deltaTime)
+      this.combatSystem?.update(_deltaTime)
+      this.contractSystem?.update(_deltaTime)
+      this.hackingSystem?.update(_deltaTime)
+      this.inventorySystem?.update(_deltaTime)
+      
+      // Update UI system
+      const playerPosition = this.movementSystem.getPlayerPosition()
+      this.uiSystem?.update(_deltaTime, playerPosition)
+      
+      // Handle combat input
+      this.processCombatInput()
+      
+      // Handle action input 
+      this.processActionInput()
+      
+      // Update camera to follow player
+      this.updateCamera()
+    } catch (error) {
+      console.error('GameEngine: Error in update:', error)
+    }
   }
 
   private render() {
-    // Clear canvas
-    this.renderer.clear()
-    
-    // Get current player position for interaction feedback
-    const playerPosition = this.movementSystem.getPlayerPosition()
-    
-    // Render world with player position for interaction feedback
-    this.renderer.renderWorld(this.worldSystem.getWorldState(), playerPosition)
-    
-    // Render players
-    this.renderer.renderPlayers(this.worldSystem.getPlayers())
-    
-    // Render projectiles
-    this.renderer.renderProjectiles(this.combatSystem.getProjectiles())
-    
-    // Render UI (new system replaces old crosshair/scanlines)
-    this.uiSystem.render()
+    try {
+      // Clear canvas
+      this.renderer?.clear()
+      
+      // Get current player position for interaction feedback
+      const playerPosition = this.movementSystem?.getPlayerPosition() || { x: 0, y: 0 }
+      
+      // Render world with player position for interaction feedback
+      const worldState = this.worldSystem?.getWorldState()
+      if (worldState) {
+        this.renderer?.renderWorld(worldState, playerPosition)
+      }
+      
+      // Render players
+      const players = this.worldSystem?.getPlayers()
+      if (players) {
+        this.renderer?.renderPlayers(players)
+      }
+      
+      // Render projectiles
+      const projectiles = this.combatSystem?.getProjectiles()
+      if (projectiles) {
+        this.renderer?.renderProjectiles(projectiles)
+      }
+      
+      // Render UI (new system replaces old crosshair/scanlines)
+      this.uiSystem?.render()
+    } catch (error) {
+      console.error('GameEngine: Error in render:', error)
+    }
   }
 
   // Public methods for external access

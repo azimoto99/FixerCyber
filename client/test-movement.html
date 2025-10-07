@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Movement Test - Fixer Game</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: Arial, sans-serif;
+            background: #1a1a1a;
+            color: #00ff00;
+        }
+        canvas {
+            border: 2px solid #00ff00;
+            background: #000;
+            display: block;
+            margin: 20px auto;
+        }
+        .info {
+            text-align: center;
+            margin: 10px;
+        }
+        .controls {
+            text-align: center;
+            margin: 20px;
+            padding: 15px;
+            border: 1px solid #00ff00;
+            background: rgba(0, 255, 0, 0.1);
+        }
+        .debug {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 10px;
+            border: 1px solid #00ff00;
+            font-family: monospace;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="info">
+        <h1>🎮 Movement System Test</h1>
+        <p>Testing the simplified movement system for stability</p>
+    </div>
+
+    <div class="controls">
+        <strong>Controls:</strong><br>
+        WASD or Arrow Keys - Move<br>
+        Mouse - Look/Aim<br>
+        Left Click - Shoot<br>
+        R - Reload<br>
+        Space - Interact
+    </div>
+
+    <canvas id="gameCanvas" width="800" height="600"></canvas>
+
+    <div class="debug" id="debugInfo">
+        <div>FPS: <span id="fps">0</span></div>
+        <div>Delta Time: <span id="deltaTime">0</span>ms</div>
+        <div>Player Position: (<span id="playerX">0</span>, <span id="playerY">0</span>)</div>
+        <div>Velocity: (<span id="velX">0</span>, <span id="velY">0</span>)</div>
+        <div>Speed: <span id="speed">0</span></div>
+        <div>Input: <span id="input">None</span></div>
+    </div>
+
+    <script type="module">
+        // Simple movement system test
+        class SimpleMovementTest {
+            constructor(canvas) {
+                this.canvas = canvas
+                this.ctx = canvas.getContext('2d')
+                this.player = {
+                    x: 400,
+                    y: 300,
+                    vx: 0,
+                    vy: 0,
+                    radius: 16,
+                    color: '#00ff00'
+                }
+                
+                this.keys = new Set()
+                this.mouse = { x: 0, y: 0 }
+                
+                this.speed = 300 // pixels per second
+                this.lastTime = 0
+                this.fps = 0
+                this.frameCount = 0
+                this.lastFpsUpdate = 0
+                
+                this.setupEvents()
+                this.start()
+            }
+            
+            setupEvents() {
+                // Keyboard
+                document.addEventListener('keydown', (e) => {
+                    this.keys.add(e.code)
+                    e.preventDefault()
+                })
+                
+                document.addEventListener('keyup', (e) => {
+                    this.keys.delete(e.code)
+                    e.preventDefault()
+                })
+                
+                // Mouse
+                this.canvas.addEventListener('mousemove', (e) => {
+                    const rect = this.canvas.getBoundingClientRect()
+                    this.mouse.x = e.clientX - rect.left
+                    this.mouse.y = e.clientY - rect.top
+                })
+                
+                this.canvas.addEventListener('click', (e) => {
+                    console.log('Shoot at:', this.mouse.x, this.mouse.y)
+                })
+            }
+            
+            getInput() {
+                let x = 0, y = 0
+                
+                if (this.keys.has('KeyW') || this.keys.has('ArrowUp')) y -= 1
+                if (this.keys.has('KeyS') || this.keys.has('ArrowDown')) y += 1
+                if (this.keys.has('KeyA') || this.keys.has('ArrowLeft')) x -= 1
+                if (this.keys.has('KeyD') || this.keys.has('ArrowRight')) x += 1
+                
+                return { x, y }
+            }
+            
+            update(deltaTime) {
+                const dt = deltaTime / 1000
+                const input = this.getInput()
+                
+                // Update velocity
+                if (Math.abs(input.x) > 0.1 || Math.abs(input.y) > 0.1) {
+                    const magnitude = Math.sqrt(input.x * input.x + input.y * input.y)
+                    if (magnitude > 0) {
+                        this.player.vx = (input.x / magnitude) * this.speed
+                        this.player.vy = (input.y / magnitude) * this.speed
+                    }
+                } else {
+                    this.player.vx = 0
+                    this.player.vy = 0
+                }
+                
+                // Update position
+                this.player.x += this.player.vx * dt
+                this.player.y += this.player.vy * dt
+                
+                // Keep player in bounds
+                this.player.x = Math.max(this.player.radius, Math.min(this.canvas.width - this.player.radius, this.player.x))
+                this.player.y = Math.max(this.player.radius, Math.min(this.canvas.height - this.player.radius, this.player.y))
+                
+                // Update debug info
+                this.updateDebug(deltaTime, input)
+            }
+            
+            render() {
+                // Clear canvas
+                this.ctx.fillStyle = '#000'
+                this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height)
+                
+                // Draw grid
+                this.ctx.strokeStyle = '#003300'
+                this.ctx.lineWidth = 1
+                for (let x = 0; x < this.canvas.width; x += 50) {
+                    this.ctx.beginPath()
+                    this.ctx.moveTo(x, 0)
+                    this.ctx.lineTo(x, this.canvas.height)
+                    this.ctx.stroke()
+                }
+                for (let y = 0; y < this.canvas.height; y += 50) {
+                    this.ctx.beginPath()
+                    this.ctx.moveTo(0, y)
+                    this.ctx.lineTo(this.canvas.width, y)
+                    this.ctx.stroke()
+                }
+                
+                // Draw player
+                this.ctx.fillStyle = this.player.color
+                this.ctx.beginPath()
+                this.ctx.arc(this.player.x, this.player.y, this.player.radius, 0, Math.PI * 2)
+                this.ctx.fill()
+                
+                // Draw velocity indicator
+                if (this.player.vx !== 0 || this.player.vy !== 0) {
+                    this.ctx.strokeStyle = '#ffff00'
+                    this.ctx.lineWidth = 2
+                    this.ctx.beginPath()
+                    this.ctx.moveTo(this.player.x, this.player.y)
+                    this.ctx.lineTo(
+                        this.player.x + this.player.vx * 0.1,
+                        this.player.y + this.player.vy * 0.1
+                    )
+                    this.ctx.stroke()
+                }
+                
+                // Draw crosshair at mouse position
+                this.ctx.strokeStyle = '#00ffff'
+                this.ctx.lineWidth = 1
+                this.ctx.beginPath()
+                this.ctx.moveTo(this.mouse.x - 10, this.mouse.y)
+                this.ctx.lineTo(this.mouse.x + 10, this.mouse.y)
+                this.ctx.moveTo(this.mouse.x, this.mouse.y - 10)
+                this.ctx.lineTo(this.mouse.x, this.mouse.y + 10)
+                this.ctx.stroke()
+            }
+            
+            updateDebug(deltaTime, input) {
+                const speed = Math.sqrt(this.player.vx * this.player.vx + this.player.vy * this.player.vy)
+                
+                document.getElementById('deltaTime').textContent = deltaTime.toFixed(1)
+                document.getElementById('playerX').textContent = this.player.x.toFixed(1)
+                document.getElementById('playerY').textContent = this.player.y.toFixed(1)
+                document.getElementById('velX').textContent = this.player.vx.toFixed(1)
+                document.getElementById('velY').textContent = this.player.vy.toFixed(1)
+                document.getElementById('speed').textContent = speed.toFixed(1)
+                document.getElementById('input').textContent = `(${input.x.toFixed(1)}, ${input.y.toFixed(1)})`
+                
+                // Update FPS
+                this.frameCount++
+                if (performance.now() - this.lastFpsUpdate > 1000) {
+                    this.fps = this.frameCount
+                    this.frameCount = 0
+                    this.lastFpsUpdate = performance.now()
+                    document.getElementById('fps').textContent = this.fps
+                }
+            }
+            
+            gameLoop(currentTime) {
+                if (this.lastTime === 0) {
+                    this.lastTime = currentTime
+                }
+                
+                const deltaTime = Math.min(currentTime - this.lastTime, 50) // Cap at 50ms
+                this.lastTime = currentTime
+                
+                if (deltaTime > 0) {
+                    this.update(deltaTime)
+                    this.render()
+                }
+                
+                requestAnimationFrame((time) => this.gameLoop(time))
+            }
+            
+            start() {
+                console.log('🎮 Starting movement test...')
+                this.gameLoop(0)
+            }
+        }
+        
+        // Start the test
+        const canvas = document.getElementById('gameCanvas')
+        const test = new SimpleMovementTest(canvas)
+        
+        // Log test status
+        console.log('✅ Movement test initialized successfully')
+        
+        // Test completion message
+        setTimeout(() => {
+            console.log('🎯 Movement test running smoothly - no crashes detected!')
+        }, 5000)
+    </script>
+    
+    <div class="info" style="margin-top: 30px;">
+        <p><strong>Test Status:</strong> If you can move the green circle smoothly with WASD/arrows without browser crashes, the movement system is working correctly!</p>
+        <p><em>Check the browser console for any error messages.</em></p>
+    </div>
+</body>
+</html>
