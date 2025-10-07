@@ -31,13 +31,50 @@ class ApiService {
       const response = await fetch(url, config)
       
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}))
-        throw new Error(errorData.error || `HTTP ${response.status}`)
+        // Handle different types of errors
+        let errorData: any = {}
+        const contentType = response.headers.get('content-type')
+        
+        if (contentType && contentType.includes('application/json')) {
+          try {
+            errorData = await response.json()
+          } catch (jsonError) {
+            // If JSON parsing fails, create a generic error
+            errorData = { error: `HTTP ${response.status}: ${response.statusText}` }
+          }
+        } else {
+          // Non-JSON response (like 502 Bad Gateway)
+          errorData = { error: `HTTP ${response.status}: ${response.statusText}` }
+        }
+        
+        throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`)
       }
 
-      return await response.json()
+      // Handle successful response
+      const contentType = response.headers.get('content-type')
+      if (contentType && contentType.includes('application/json')) {
+        try {
+          return await response.json()
+        } catch (jsonError) {
+          console.warn('Response claimed to be JSON but failed to parse:', jsonError)
+          throw new Error('Invalid JSON response from server')
+        }
+      } else {
+        // Non-JSON successful response
+        const text = await response.text()
+        if (!text.trim()) {
+          return {} // Return empty object for empty responses
+        }
+        throw new Error('Expected JSON response but received: ' + contentType)
+      }
     } catch (error) {
       console.error('API request failed:', error)
+      
+      // Provide more helpful error messages for common issues
+      if (error instanceof TypeError && error.message.includes('fetch')) {
+        throw new Error('Unable to connect to server. Is the server running?')
+      }
+      
       throw error
     }
   }
