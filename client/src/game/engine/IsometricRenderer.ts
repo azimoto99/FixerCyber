@@ -304,10 +304,10 @@ export class IsometricRenderer {
     }
     
     // Add neon glow for certain tiles
-    if (config.hasGlow && config.glowColor) {
-      this.ctx.shadowColor = config.glowColor
+    if (config.hasGlow && 'glowColor' in config) {
+      this.ctx.shadowColor = config.glowColor as string
       this.ctx.shadowBlur = 10 * this.camera.zoom
-      this.ctx.strokeStyle = config.glowColor
+      this.ctx.strokeStyle = config.glowColor as string
       this.ctx.lineWidth = 1
       this.ctx.stroke()
       this.ctx.shadowBlur = 0
@@ -479,50 +479,14 @@ export class IsometricRenderer {
     
     // Interactive building indicator
     if (building.interactive) {
-      this.drawInteractiveIndicator(basePos, buildingWidth, buildingDepth, isNearPlayer)
+      this.drawInteractiveIndicator(basePos, buildingWidth, buildingDepth, isNearPlayer || false)
     }
 
     this.ctx.restore()
   }
 
-  private drawBuildingWalls(basePos: any, topPos: any, width: number, depth: number, color: string, _height: number) {
-    // Left wall
-    this.ctx.fillStyle = this.darkenColor(color)
-    this.ctx.beginPath()
-    this.ctx.moveTo(basePos.x - width / 2, basePos.y)
-    this.ctx.lineTo(topPos.x - width / 2, topPos.y)
-    this.ctx.lineTo(topPos.x, topPos.y - depth / 4)
-    this.ctx.lineTo(basePos.x, basePos.y - depth / 4)
-    this.ctx.closePath()
-    this.ctx.fill()
 
-    // Right wall
-    this.ctx.fillStyle = this.darkenColor(color, 0.8)
-    this.ctx.beginPath()
-    this.ctx.moveTo(basePos.x, basePos.y - depth / 4)
-    this.ctx.lineTo(topPos.x, topPos.y - depth / 4)
-    this.ctx.lineTo(topPos.x + width / 2, topPos.y)
-    this.ctx.lineTo(basePos.x + width / 2, basePos.y)
-    this.ctx.closePath()
-    this.ctx.fill()
-
-    // Top face
-    this.ctx.fillStyle = color
-    this.ctx.beginPath()
-    this.ctx.moveTo(topPos.x - width / 2, topPos.y)
-    this.ctx.lineTo(topPos.x, topPos.y - depth / 4)
-    this.ctx.lineTo(topPos.x + width / 2, topPos.y)
-    this.ctx.lineTo(topPos.x, topPos.y + depth / 4)
-    this.ctx.closePath()
-    this.ctx.fill()
-
-    // Add building outline
-    this.ctx.strokeStyle = 'rgba(255,255,255,0.2)'
-    this.ctx.lineWidth = 1
-    this.ctx.stroke()
-  }
-
-  private drawEnhancedBuildingWalls(basePos: any, topPos: any, width: number, depth: number, config: any, height: number) {
+  private drawEnhancedBuildingWalls(basePos: any, topPos: any, width: number, depth: number, config: any, _height: number) {
     // Create gradient for building faces
     const leftGradient = this.ctx.createLinearGradient(
       basePos.x - width / 2, basePos.y,
@@ -584,7 +548,7 @@ export class IsometricRenderer {
     this.ctx.globalAlpha = 1
   }
 
-  private drawCyberpunkWindows(basePos: any, topPos: any, size: any, building: any, height: number, config: any) {
+  private drawCyberpunkWindows(basePos: any, topPos: any, size: any, _building: any, height: number, config: any) {
     const windowSize = 4 * this.camera.zoom
     const windowSpacing = 8 * this.camera.zoom
     const floorsCount = Math.floor(height)
@@ -722,70 +686,7 @@ export class IsometricRenderer {
     this.ctx.restore()
   }
 
-  private drawBuildingWindows3D(basePos: any, size: any, building: any, height: number) {
-    if (size.x < 40 || size.y < 40) return
 
-    const windowSize = 6 * this.camera.zoom
-    const windowSpacing = 12 * this.camera.zoom
-    
-    // Windows on left wall
-    for (let y = 0; y < height * 10; y += windowSpacing) {
-      for (let x = -size.x / 4; x < size.x / 4; x += windowSpacing) {
-        const isLit = Math.random() > 0.4
-        const windowColor = isLit ? (building.hackable ? '#ff6600' : '#ffdd00') : '#1a1a1a'
-        
-        this.ctx.fillStyle = windowColor
-        this.ctx.fillRect(
-          basePos.x + x - windowSize / 2,
-          basePos.y - y - windowSize / 2,
-          windowSize,
-          windowSize / 2
-        )
-
-        if (isLit) {
-          // Add glow effect for lit windows
-          this.ctx.shadowColor = windowColor
-          this.ctx.shadowBlur = 4
-          this.ctx.fillRect(
-            basePos.x + x - windowSize / 2,
-            basePos.y - y - windowSize / 2,
-            windowSize,
-            windowSize / 2
-          )
-          this.ctx.shadowBlur = 0
-        }
-      }
-    }
-  }
-
-  private drawNeonSign(basePos: any, buildingWidth: number, buildingType: string) {
-    const signs = {
-      shop: '$ SHOP $',
-      safehouse: '◊ SAFE ◊',
-      hack: '◊ HACK ◊',
-      mission: '! JOBS !',
-      bar: '♦ BAR ♦'
-    }
-
-    const signText = signs[buildingType as keyof typeof signs] || '◊ ??? ◊'
-    
-    this.ctx.save()
-    this.ctx.font = `${8 * this.camera.zoom}px monospace`
-    this.ctx.textAlign = 'center'
-    
-    // Neon glow effect
-    this.ctx.shadowColor = '#00ffff'
-    this.ctx.shadowBlur = 10
-    this.ctx.fillStyle = '#00ffff'
-    
-    this.ctx.fillText(
-      signText,
-      basePos.x,
-      basePos.y - buildingWidth / 2 - 20 * this.camera.zoom
-    )
-    
-    this.ctx.restore()
-  }
 
   private renderInfrastructure3D(item: any) {
     if (!item || !item.position) return
@@ -1456,18 +1357,6 @@ export class IsometricRenderer {
            objTileY >= viewBounds.top && objTileY <= viewBounds.bottom
   }
 
-  private getBuildingColor(type: string): string {
-    const colors = {
-      residential: '#4a4a70',
-      commercial: '#6a4a4a',
-      industrial: '#4a6a4a',
-      shop: '#4a4a6a',
-      safehouse: '#6a6a4a',
-      hack: '#4a6a6a',
-      mission: '#6a4a6a'
-    }
-    return colors[type as keyof typeof colors] || '#4a4a4a'
-  }
 
   private lightenColor(color: string, _factor: number = 1.3): string {
     // Simple color lightening

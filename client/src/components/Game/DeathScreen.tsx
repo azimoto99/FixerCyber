@@ -1,5 +1,3 @@
-import { useGameStore } from '../../stores/gameStore'
-
 interface DeathScreenProps {
   deathInfo: {
     killerId: string
@@ -55,7 +53,7 @@ export function DeathScreen({ deathInfo, onRestart }: DeathScreenProps) {
         </div>
       </div>
       
-      <style jsx>{`
+      <style>{`
         @keyframes glitch {
           0% {
             text-shadow: 
