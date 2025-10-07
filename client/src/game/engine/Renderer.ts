@@ -303,26 +303,31 @@ export class Renderer {
   }
 
   private renderRoad(road: any) {
+    // Handle multi-point roads (curved streets)
+    if (road.points && road.points.length > 2) {
+      this.renderMultiPointRoad(road)
+      return
+    }
+    
+    // Handle simple two-point roads
     const start = this.worldToScreen(road.start)
     const end = this.worldToScreen(road.end)
-    const roadWidth = road.width * this.camera.zoom
+    const roadWidth = Math.max(road.width * this.camera.zoom, 8) // Minimum width for visibility
 
-    // Draw realistic asphalt road
     this.ctx.save()
     
-    // Main road surface - dark asphalt
-    this.ctx.strokeStyle = '#2a2a2a'  // Dark asphalt color
-    this.ctx.lineWidth = roadWidth
-    this.ctx.lineCap = 'butt'
+    // Road base (wider, darker for depth)
+    this.ctx.strokeStyle = '#1a1a1a'  // Very dark base
+    this.ctx.lineWidth = roadWidth + 8
+    this.ctx.lineCap = 'round'
     this.ctx.beginPath()
     this.ctx.moveTo(start.x, start.y)
     this.ctx.lineTo(end.x, end.y)
     this.ctx.stroke()
     
-    // Road edges/curbs
-    this.ctx.strokeStyle = '#1a1a1a'  // Darker edge
-    this.ctx.lineWidth = roadWidth + 4
-    this.ctx.globalAlpha = 0.5
+    // Main road surface - more visible asphalt
+    this.ctx.strokeStyle = '#3a3a3a'  // Lighter asphalt for better visibility
+    this.ctx.lineWidth = roadWidth
     this.ctx.beginPath()
     this.ctx.moveTo(start.x, start.y)
     this.ctx.lineTo(end.x, end.y)
@@ -331,7 +336,7 @@ export class Renderer {
     this.ctx.restore()
     
     // Add lane markings for wider roads
-    if (roadWidth > 30) {
+    if (roadWidth > 15) {
       this.drawLaneMarkings(start, end, roadWidth, road.type)
     }
     
@@ -339,6 +344,87 @@ export class Renderer {
     if (road.type === 'main' || road.type === 'secondary') {
       this.drawSidewalks(start, end, roadWidth)
     }
+    
+    // Add street lighting for main roads
+    if (road.type === 'main' && roadWidth > 25) {
+      this.addStreetLights(start, end, roadWidth)
+    }
+  }
+  
+  private renderMultiPointRoad(road: any) {
+    if (!road.points || road.points.length < 2) return
+    
+    const roadWidth = Math.max(road.width * this.camera.zoom, 6)
+    const points = road.points.map((p: any) => this.worldToScreen(p))
+    
+    this.ctx.save()
+    
+    // Road base
+    this.ctx.strokeStyle = '#1a1a1a'
+    this.ctx.lineWidth = roadWidth + 6
+    this.ctx.lineCap = 'round'
+    this.ctx.lineJoin = 'round'
+    this.ctx.beginPath()
+    this.ctx.moveTo(points[0].x, points[0].y)
+    for (let i = 1; i < points.length; i++) {
+      this.ctx.lineTo(points[i].x, points[i].y)
+    }
+    this.ctx.stroke()
+    
+    // Main road surface
+    this.ctx.strokeStyle = '#3a3a3a'
+    this.ctx.lineWidth = roadWidth
+    this.ctx.beginPath()
+    this.ctx.moveTo(points[0].x, points[0].y)
+    for (let i = 1; i < points.length; i++) {
+      this.ctx.lineTo(points[i].x, points[i].y)
+    }
+    this.ctx.stroke()
+    
+    this.ctx.restore()
+  }
+  
+  private addStreetLights(start: {x: number, y: number}, end: {x: number, y: number}, roadWidth: number) {
+    const dx = end.x - start.x
+    const dy = end.y - start.y
+    const length = Math.sqrt(dx * dx + dy * dy)
+    
+    if (length === 0) return
+    
+    const lightSpacing = 80 * this.camera.zoom
+    const numLights = Math.floor(length / lightSpacing)
+    
+    if (numLights < 2) return
+    
+    // Calculate perpendicular offset for light placement
+    const offsetX = (dy / length) * (roadWidth / 2 + 12)
+    const offsetY = (-dx / length) * (roadWidth / 2 + 12)
+    
+    this.ctx.save()
+    
+    for (let i = 1; i < numLights; i++) {
+      const t = i / numLights
+      const lightX = start.x + (dx * t)
+      const lightY = start.y + (dy * t)
+      
+      // Street light poles (both sides)
+      this.ctx.fillStyle = '#666666'
+      this.ctx.fillRect(lightX + offsetX - 1, lightY + offsetY - 8, 2, 16) // Left pole
+      this.ctx.fillRect(lightX - offsetX - 1, lightY - offsetY - 8, 2, 16) // Right pole
+      
+      // Light glow effect
+      this.ctx.fillStyle = '#ffff88'
+      this.ctx.globalAlpha = 0.3
+      this.ctx.beginPath()
+      this.ctx.arc(lightX + offsetX, lightY + offsetY - 8, 6, 0, Math.PI * 2)
+      this.ctx.fill()
+      this.ctx.beginPath()
+      this.ctx.arc(lightX - offsetX, lightY - offsetY - 8, 6, 0, Math.PI * 2)
+      this.ctx.fill()
+      this.ctx.globalAlpha = 1
+    }
+    
+    this.ctx.restore()
   }
   
   private drawLaneMarkings(start: {x: number, y: number}, end: {x: number, y: number}, _roadWidth: number, roadType: string) {
@@ -463,20 +549,110 @@ export class Renderer {
   private renderPlayer(player: any) {
     const centerX = this.canvas.width / 2
     const centerY = this.canvas.height / 2
+    const scale = this.camera.zoom
 
-    // Player body
-    this.ctx.fillStyle = '#00ff88'
-    this.ctx.beginPath()
-    this.ctx.arc(centerX, centerY, 15, 0, Math.PI * 2)
-    this.ctx.fill()
-
-    // Player outline
-    this.ctx.strokeStyle = '#00ffff'
-    this.ctx.lineWidth = 2
-    this.ctx.stroke()
+    // Draw cyberpunk character sprite
+    this.drawCyberpunkPlayer(centerX, centerY, player, scale)
 
     // Health bar
-    this.drawHealthBar(centerX, centerY - 25, player.health)
+    this.drawHealthBar(centerX, centerY - 35 * scale, player.health)
+    
+    // Player name tag
+    this.drawPlayerNameTag(centerX, centerY - 50 * scale, player)
+  }
+  
+  private drawCyberpunkPlayer(x: number, y: number, _player: any, scale: number = 1) {
+    this.ctx.save()
+    
+    const size = 16 * scale
+    
+    // Player body (torso) - cyberpunk jacket
+    this.ctx.fillStyle = '#2a4d3a' // Dark green cyber jacket
+    this.ctx.fillRect(x - size/3, y - size/4, size * 0.66, size * 0.8)
+    
+    // Cyber jacket highlights
+    this.ctx.fillStyle = '#00ff88'
+    this.ctx.fillRect(x - size/3, y - size/4, size * 0.1, size * 0.8) // Left stripe
+    this.ctx.fillRect(x + size/4, y - size/4, size * 0.1, size * 0.8) // Right stripe
+    
+    // Player head
+    this.ctx.fillStyle = '#d4a574' // Skin tone
+    this.ctx.beginPath()
+    this.ctx.arc(x, y - size/2, size/3, 0, Math.PI * 2)
+    this.ctx.fill()
+    
+    // Cyberpunk hair/helmet
+    this.ctx.fillStyle = '#1a1a1a'
+    this.ctx.beginPath()
+    this.ctx.arc(x, y - size/2, size/3, Math.PI, 2 * Math.PI) // Top half circle for hair
+    this.ctx.fill()
+    
+    // Cyber implant (glowing eye)
+    this.ctx.fillStyle = '#00ffff'
+    this.ctx.beginPath()
+    this.ctx.arc(x + size/6, y - size/2, size/12, 0, Math.PI * 2)
+    this.ctx.fill()
+    
+    // Glowing effect for cyber eye
+    this.ctx.save()
+    this.ctx.shadowColor = '#00ffff'
+    this.ctx.shadowBlur = 8 * scale
+    this.ctx.fillStyle = '#ffffff'
+    this.ctx.beginPath()
+    this.ctx.arc(x + size/6, y - size/2, size/20, 0, Math.PI * 2)
+    this.ctx.fill()
+    this.ctx.restore()
+    
+    // Player legs
+    this.ctx.fillStyle = '#1a1a1a' // Dark pants
+    this.ctx.fillRect(x - size/4, y + size/4, size/6, size/2) // Left leg
+    this.ctx.fillRect(x + size/12, y + size/4, size/6, size/2) // Right leg
+    
+    // Cyber boots
+    this.ctx.fillStyle = '#333333'
+    this.ctx.fillRect(x - size/4, y + size * 0.65, size/5, size/4) // Left boot
+    this.ctx.fillRect(x + size/12, y + size * 0.65, size/5, size/4) // Right boot
+    
+    // Boot glow strips
+    this.ctx.fillStyle = '#00ff88'
+    this.ctx.fillRect(x - size/5, y + size * 0.7, size/8, size/8) // Left boot glow
+    this.ctx.fillRect(x + size/8, y + size * 0.7, size/8, size/8) // Right boot glow
+    
+    // Player arms
+    this.ctx.fillStyle = '#2a4d3a' // Same as jacket
+    this.ctx.fillRect(x - size/2, y - size/8, size/4, size/2) // Left arm
+    this.ctx.fillRect(x + size/4, y - size/8, size/4, size/2) // Right arm
+    
+    // Cyber weapon/tool in hand
+    this.ctx.fillStyle = '#666666'
+    this.ctx.fillRect(x + size/3, y, size/6, size/3) // Weapon/tool
+    
+    // Weapon glow
+    this.ctx.fillStyle = '#ff4444'
+    this.ctx.fillRect(x + size/3 + size/12, y + size/6, size/12, size/12)
+    
+    // Player outline for better visibility
+    this.ctx.strokeStyle = '#00ffff'
+    this.ctx.lineWidth = 2 * scale
+    this.ctx.globalAlpha = 0.8
+    this.ctx.strokeRect(x - size/2, y - size, size, size * 1.5)
+    
+    this.ctx.restore()
+  }
+  
+  private drawPlayerNameTag(x: number, y: number, player: any) {
+    if (!player.username) return
+    
+    this.ctx.save()
+    this.ctx.fillStyle = 'rgba(0, 0, 0, 0.7)'
+    this.ctx.fillRect(x - 30, y - 8, 60, 16)
+    
+    this.ctx.fillStyle = '#00ff88'
+    this.ctx.font = '12px monospace'
+    this.ctx.textAlign = 'center'
+    this.ctx.textBaseline = 'middle'
+    this.ctx.fillText(player.username, x, y)
+    this.ctx.restore()
   }
 
   private drawHealthBar(x: number, y: number, health: number) {
