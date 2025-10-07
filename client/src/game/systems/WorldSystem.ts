@@ -104,7 +104,8 @@ export class WorldSystem extends EventEmitter {
           loot: generatedChunk.loot,
           tileMap: generatedChunk.tileMap,
           collisionMap: generatedChunk.collisionMap,
-          infrastructure: generatedChunk.infrastructure
+          infrastructure: generatedChunk.infrastructure,
+          doors: generatedChunk.doors
         },
         generatedAt: new Date(),
         lastAccessed: new Date()

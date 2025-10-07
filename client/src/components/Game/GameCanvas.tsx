@@ -4,6 +4,7 @@ import { GameEngine } from '../../game/engine/GameEngine'
 import { LoadingProgress } from '../../game/systems/LoadingSystem'
 import { DebugPanel } from './DebugPanel'
 import LoadingScreen from './LoadingScreen'
+import { InteractionPrompt } from './InteractionPrompt'
 
 export function GameCanvas() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -117,6 +118,9 @@ export function GameCanvas() {
       
       {/* Debug Panel - only show when game is ready */}
       {gameReady && <DebugPanel gameEngine={gameEngineRef.current} />}
+      
+      {/* Interaction Prompt */}
+      {gameReady && <InteractionPrompt gameEngine={gameEngineRef.current} />}
     </>
   )
 }

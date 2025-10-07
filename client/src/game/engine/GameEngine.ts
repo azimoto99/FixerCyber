@@ -10,6 +10,7 @@ import { InventorySystem } from '../systems/InventorySystem'
 import { IsometricMovementSystem } from '../systems/IsometricMovementSystem'
 import { UISystem } from '../systems/UISystem'
 import { LoadingSystem, LoadingProgress } from '../systems/LoadingSystem'
+import { BuildingInteractionSystem } from '../systems/BuildingInteractionSystem'
 
 export class GameEngine {
   private renderer: IsometricRenderer
@@ -23,6 +24,7 @@ export class GameEngine {
   private movementSystem: IsometricMovementSystem
   private uiSystem: UISystem
   private loadingSystem: LoadingSystem
+  private buildingInteractionSystem: BuildingInteractionSystem
   
   private isRunning = false
   private lastTime = 0
@@ -52,6 +54,7 @@ export class GameEngine {
     this.hackingSystem = new HackingSystem()
     this.inventorySystem = new InventorySystem()
     this.uiSystem = new UISystem(canvas, this.combatSystem)
+    this.buildingInteractionSystem = new BuildingInteractionSystem(this.worldSystem)
     
     this.setupEventListeners()
     // Don't initialize demo player yet - wait for world to load
@@ -202,6 +205,15 @@ export class GameEngine {
     const playerPosition = this.movementSystem.getPlayerPosition()
     
     if (actionInput) {
+      // Handle building interaction separately
+      if (actionInput === 'interact') {
+        const interacted = this.buildingInteractionSystem?.interact()
+        if (interacted) {
+          console.log('🚪 Building interaction:', this.buildingInteractionSystem?.isInside() ? 'Entered' : 'Exited')
+          return // Don't pass to other systems
+        }
+      }
+
       const actionData = {
         type: actionInput,
         playerId: 'demo-player',
@@ -350,6 +362,9 @@ export class GameEngine {
       // Update UI system
       const playerPosition = this.movementSystem.getPlayerPosition()
       this.uiSystem?.update(_deltaTime, playerPosition)
+      
+      // Update building interaction
+      this.buildingInteractionSystem?.update(playerPosition)
       
       // Handle combat input
       this.processCombatInput()
@@ -563,6 +578,10 @@ export class GameEngine {
   
   getMovementSystem() {
     return this.movementSystem
+  }
+
+  getBuildingInteractionSystem() {
+    return this.buildingInteractionSystem
   }
   
   // Set the current player for movement

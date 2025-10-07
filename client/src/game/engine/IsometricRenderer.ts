@@ -205,7 +205,8 @@ export class IsometricRenderer {
       grass: '#1a3a1a',
       concrete: '#4a4a4a',
       dirt: '#3a2a1a',
-      building: '#2f2f2f'
+      building: '#2f2f2f',
+      door: '#5a4a3a' // slightly warmer brown to stand out
     }
     
     this.ctx.fillStyle = colors[groundType as keyof typeof colors] || colors.concrete

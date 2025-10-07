@@ -53,7 +53,7 @@ export class WorldGenerator {
     const roads = this.convertStreetsToRoads(cityPlan.streets)
 
     // Tile and collision maps
-    const { tileMap, collisionMap } = this.generateTileAndCollisionMaps(x, y, buildings, roads, districtType)
+    const { tileMap, collisionMap, doors } = this.generateTileAndCollisionMaps(x, y, buildings, roads, districtType)
 
     const chunk = {
       id: this.generateChunkId(x, y),
@@ -64,6 +64,7 @@ export class WorldGenerator {
       roads,
       tileMap,
       collisionMap,
+      doors, // door metadata for interaction
       npcs: this.generateNPCs(random, districtType),
       loot: this.generateLoot(random, districtType),
       infrastructure: cityPlan.infrastructure,
@@ -99,16 +100,29 @@ export class WorldGenerator {
   private static generateStreetNetwork(baseX: number, baseY: number, districtType: string, random: () => number): Street[] {
     const streets: Street[] = []
     const streetId = () => this.generateId()
+
+    // Determine chunk coordinates from base offsets
+    const chunkX = Math.round(baseX / this.CHUNK_SIZE)
+    const chunkY = Math.round(baseY / this.CHUNK_SIZE)
     
     // Main arterial streets - these define the major structure
     if (districtType === 'corporate') {
       // Corporate districts have wide, straight streets in a modified grid
+      // Use row/column seeded offsets so roads align across chunk borders
+      const rowRandH0 = this.rowRandom(chunkY, 'corp_h0')
+      const rowRandH1 = this.rowRandom(chunkY, 'corp_h1')
+      const colRandV0 = this.colRandom(chunkX, 'corp_v0')
+
+      const h0y = baseY + this.CHUNK_SIZE * 0.3 + (rowRandH0() - 0.5) * 50
+      const h1y = baseY + this.CHUNK_SIZE * 0.7 + (rowRandH1() - 0.5) * 50
+      const v0x = baseX + this.CHUNK_SIZE * 0.4 + (colRandV0() - 0.5) * 50
+
       streets.push({
         id: streetId(),
         type: 'main',
         points: [
-          { x: baseX, y: baseY + this.CHUNK_SIZE * 0.3 + (random() - 0.5) * 50 },
-          { x: baseX + this.CHUNK_SIZE, y: baseY + this.CHUNK_SIZE * 0.3 + (random() - 0.5) * 50 }
+          { x: baseX, y: h0y },
+          { x: baseX + this.CHUNK_SIZE, y: h0y }
         ],
         width: this.STREET_WIDTH_MAIN,
         connections: []
@@ -118,20 +132,20 @@ export class WorldGenerator {
         id: streetId(),
         type: 'main',
         points: [
-          { x: baseX, y: baseY + this.CHUNK_SIZE * 0.7 + (random() - 0.5) * 50 },
-          { x: baseX + this.CHUNK_SIZE, y: baseY + this.CHUNK_SIZE * 0.7 + (random() - 0.5) * 50 }
+          { x: baseX, y: h1y },
+          { x: baseX + this.CHUNK_SIZE, y: h1y }
         ],
         width: this.STREET_WIDTH_MAIN,
         connections: []
       })
       
-      // Vertical main streets
+      // Vertical main street
       streets.push({
         id: streetId(),
         type: 'main',
         points: [
-          { x: baseX + this.CHUNK_SIZE * 0.4 + (random() - 0.5) * 50, y: baseY },
-          { x: baseX + this.CHUNK_SIZE * 0.4 + (random() - 0.5) * 50, y: baseY + this.CHUNK_SIZE }
+          { x: v0x, y: baseY },
+          { x: v0x, y: baseY + this.CHUNK_SIZE }
         ],
         width: this.STREET_WIDTH_MAIN,
         connections: []
@@ -159,12 +173,15 @@ export class WorldGenerator {
       
     } else if (districtType === 'industrial') {
       // Industrial has wide, functional streets
+      // Keep a consistent main road at mid-chunk with slight row-based wobble for continuity
+      const rowRand = this.rowRandom(chunkY, 'ind_h0')
+      const midY = baseY + this.CHUNK_SIZE * 0.5 + (rowRand() - 0.5) * 40
       streets.push({
         id: streetId(),
         type: 'main',
         points: [
-          { x: baseX, y: baseY + this.CHUNK_SIZE * 0.5 },
-          { x: baseX + this.CHUNK_SIZE, y: baseY + this.CHUNK_SIZE * 0.5 }
+          { x: baseX, y: midY },
+          { x: baseX + this.CHUNK_SIZE, y: midY }
         ],
         width: this.STREET_WIDTH_MAIN + 20, // Extra wide for trucks
         connections: []
@@ -720,10 +737,11 @@ export class WorldGenerator {
     buildings: any[],
     roads: any[],
     districtType: string
-  ): { tileMap: string[][], collisionMap: boolean[][] } {
+  ): { tileMap: string[][], collisionMap: boolean[][], doors: any[] } {
     const tilesPerChunk = 20
     const tileMap: string[][] = Array.from({ length: tilesPerChunk }, () => Array(tilesPerChunk).fill('concrete'))
     const collisionMap: boolean[][] = Array.from({ length: tilesPerChunk }, () => Array(tilesPerChunk).fill(false))
+    const doors: any[] = [] // Store door metadata
 
     const baseX = chunkX * this.CHUNK_SIZE
     const baseY = chunkY * this.CHUNK_SIZE
@@ -804,7 +822,41 @@ export class WorldGenerator {
       }
     }
 
-    return { tileMap, collisionMap }
+    // Mark building entrances with door tiles
+    for (let i = 0; i < buildings.length; i++) {
+      const b = buildings[i]
+      const bx = (b.position?.x ?? b.x ?? 0)
+      const by = (b.position?.y ?? b.y ?? 0)
+      const bw = (b.size?.x ?? b.width ?? 40)
+      const bh = (b.size?.y ?? b.height ?? 40)
+
+      // Find suitable door location (front face, typically bottom edge for isometric)
+      // Use midpoint of bottom edge
+      const doorWorldX = bx + bw / 2
+      const doorWorldY = by + bh // bottom edge
+
+      const doorLocalX = doorWorldX - baseX
+      const doorLocalY = doorWorldY - baseY
+      const doorTileX = Math.max(0, Math.min(19, Math.floor(doorLocalX / tileSize)))
+      const doorTileY = Math.max(0, Math.min(19, Math.floor(doorLocalY / tileSize)))
+
+      // Mark tile as door and make walkable
+      tileMap[doorTileY][doorTileX] = 'door'
+      collisionMap[doorTileY][doorTileX] = false
+
+      // Store door metadata
+      doors.push({
+        tileX: doorTileX,
+        tileY: doorTileY,
+        worldX: doorWorldX,
+        worldY: doorWorldY,
+        buildingId: b.id,
+        buildingType: b.type,
+        interactive: b.interactive !== false
+      })
+    }
+
+    return { tileMap, collisionMap, doors }
   }
 
   // Generate NPCs for a chunk
@@ -1073,6 +1125,28 @@ export class WorldGenerator {
 
   private static generateId(): string {
     return Math.random().toString(36).substr(2, 9)
+  }
+
+  // Row/column seeded random for chunk border continuity
+  private static rowRandom(row: number, tag: string): () => number {
+    const seed = this.hashCoords(row, 0, tag)
+    return this.createSeededRandom(seed)
+  }
+
+  private static colRandom(col: number, tag: string): () => number {
+    const seed = this.hashCoords(0, col, tag)
+    return this.createSeededRandom(seed)
+  }
+
+  private static hashCoords(x: number, y: number, tag: string): number {
+    // Simple string->int hash for deterministic seeding
+    const str = `${x}_${y}_${tag}`
+    let hash = 0
+    for (let i = 0; i < str.length; i++) {
+      hash = (hash << 5) - hash + str.charCodeAt(i)
+      hash |= 0
+    }
+    return Math.abs(hash) % 2147483647
   }
 
   private static generateLootTables(random: () => number, lootChance: number): any[] {
