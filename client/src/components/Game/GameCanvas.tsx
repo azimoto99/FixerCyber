@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { useGameStore } from '../../stores/gameStore'
 import { GameEngine } from '../../game/engine/GameEngine'
+import { DebugPanel } from './DebugPanel'
 
 export function GameCanvas() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -35,12 +36,9 @@ export function GameCanvas() {
     // Start game engine
     gameEngine.start()
 
-    // Update camera to follow player
+    // Set player in game engine if available
     if (player) {
-      const renderer = gameEngine.getRenderer()
-      if (renderer) {
-        renderer.setCamera(player.position.x, player.position.y, 1)
-      }
+      gameEngine.setPlayer(player)
     }
 
     return () => {
@@ -50,11 +48,14 @@ export function GameCanvas() {
   }, [player, world])
 
   return (
-    <canvas
-      ref={canvasRef}
-      className="absolute inset-0 w-full h-full"
-      style={{ imageRendering: 'pixelated' }}
-    />
+    <>
+      <canvas
+        ref={canvasRef}
+        className="absolute inset-0 w-full h-full"
+        style={{ imageRendering: 'pixelated' }}
+      />
+      <DebugPanel gameEngine={gameEngineRef.current} />
+    </>
   )
 }
 

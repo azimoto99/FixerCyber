@@ -8,6 +8,21 @@ export function Login() {
   const [loading, setLoading] = useState(false)
   const { setCurrentView, setAuthenticated, setPlayer } = useGameStore()
 
+  const handleDemoMode = () => {
+    // Create a demo player for testing movement
+    setPlayer({
+      id: 'demo-player',
+      username: 'DemoFixer',
+      position: { x: 0, y: 0 },
+      health: 100,
+      credits: 1000,
+      isAlive: true,
+    })
+    
+    setAuthenticated(true)
+    setCurrentView('game')
+  }
+  
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
@@ -98,12 +113,19 @@ export function Login() {
           </button>
         </form>
         
-        <div className="mt-6 text-center">
+        <div className="mt-6 text-center space-y-3">
           <button
             onClick={() => setCurrentView('register')}
-            className="text-cyberpunk-primary hover:text-cyberpunk-accent transition-colors"
+            className="text-cyberpunk-primary hover:text-cyberpunk-accent transition-colors block w-full"
           >
             Need a new identity?
+          </button>
+          
+          <button
+            onClick={handleDemoMode}
+            className="text-neon-cyan hover:text-neon-green transition-colors text-sm block w-full"
+          >
+            🎮 Demo Mode (No Server)
           </button>
         </div>
       </div>

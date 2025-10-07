@@ -7,6 +7,7 @@ import { CombatSystem } from '../systems/CombatSystem'
 import { ContractSystem } from '../systems/ContractSystem'
 import { HackingSystem } from '../systems/HackingSystem'
 import { InventorySystem } from '../systems/InventorySystem'
+import { MovementSystem } from '../systems/MovementSystem'
 
 export class GameEngine {
   private renderer: Renderer
@@ -17,6 +18,7 @@ export class GameEngine {
   private contractSystem: ContractSystem
   private hackingSystem: HackingSystem
   private inventorySystem: InventorySystem
+  private movementSystem: MovementSystem
   
   private isRunning = false
   private lastTime = 0
@@ -33,14 +35,15 @@ export class GameEngine {
     this.contractSystem = new ContractSystem()
     this.hackingSystem = new HackingSystem()
     this.inventorySystem = new InventorySystem()
+    this.movementSystem = new MovementSystem()
     
     this.setupEventListeners()
   }
 
   private setupEventListeners() {
-    // Input events
-    this.inputManager.on('move', (data: any) => {
-      this.worldSystem.handlePlayerMovement(data)
+    // Movement event from MovementSystem
+    window.addEventListener('playerMovement', (e: any) => {
+      this.handlePlayerMovement(e.detail)
     })
 
     this.inputManager.on('action', (data: any) => {
@@ -75,6 +78,32 @@ export class GameEngine {
       case 'inventory':
         this.inventorySystem.handleInventoryAction(data, null) // Added missing second parameter
         break
+    }
+  }
+  
+  private handlePlayerMovement(movementData: any) {
+    // Send movement to server via WebSocket
+    // For now, we'll log it for debugging
+    console.log('Player movement:', movementData)
+    
+    // In a real implementation, this would send to server:
+    // this.networkManager.sendPlayerMovement(movementData)
+  }
+  
+  private updateCamera() {
+    const playerPosition = this.movementSystem.getPlayerPosition()
+    if (playerPosition.x !== 0 || playerPosition.y !== 0) {
+      // Smooth camera following with slight lag for more natural feel
+      const currentCamera = this.renderer.getCamera()
+      const lerpFactor = 0.08 // Adjust for camera smoothness
+      
+      const targetX = playerPosition.x
+      const targetY = playerPosition.y
+      
+      const newX = currentCamera.x + (targetX - currentCamera.x) * lerpFactor
+      const newY = currentCamera.y + (targetY - currentCamera.y) * lerpFactor
+      
+      this.renderer.setCamera(newX, newY, currentCamera.zoom)
     }
   }
 
@@ -117,11 +146,15 @@ export class GameEngine {
 
   private update(_deltaTime: number) {
     // Update all game systems
+    this.movementSystem.update(_deltaTime, this.inputManager)
     this.worldSystem.update(_deltaTime)
     this.combatSystem.update(_deltaTime)
     this.contractSystem.update(_deltaTime)
     this.hackingSystem.update(_deltaTime)
     this.inventorySystem.update(_deltaTime)
+    
+    // Update camera to follow player
+    this.updateCamera()
   }
 
   private render() {
@@ -161,6 +194,17 @@ export class GameEngine {
 
   getRenderer() {
     return this.renderer
+  }
+  
+  getMovementSystem() {
+    return this.movementSystem
+  }
+  
+  // Set the current player for movement
+  setPlayer(player: any) {
+    this.movementSystem.setPlayer(player)
+    // Add player to world system
+    this.worldSystem.addPlayer(player)
   }
 
   // Cleanup
