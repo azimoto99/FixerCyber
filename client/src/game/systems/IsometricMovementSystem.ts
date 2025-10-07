@@ -50,31 +50,32 @@ export class IsometricMovementSystem {
   }
 
   private getIsometricMovement(inputManager: InputManager): { x: number; y: number } {
-    let x = 0
-    let y = 0
+    let inputX = 0
+    let inputY = 0
 
     // Get raw WASD input
-    if (inputManager.isKeyPressed('KeyW') || inputManager.isKeyPressed('ArrowUp')) y -= 1
-    if (inputManager.isKeyPressed('KeyS') || inputManager.isKeyPressed('ArrowDown')) y += 1
-    if (inputManager.isKeyPressed('KeyA') || inputManager.isKeyPressed('ArrowLeft')) x -= 1
-    if (inputManager.isKeyPressed('KeyD') || inputManager.isKeyPressed('ArrowRight')) x += 1
+    if (inputManager.isKeyPressed('KeyW') || inputManager.isKeyPressed('ArrowUp')) inputY -= 1
+    if (inputManager.isKeyPressed('KeyS') || inputManager.isKeyPressed('ArrowDown')) inputY += 1
+    if (inputManager.isKeyPressed('KeyA') || inputManager.isKeyPressed('ArrowLeft')) inputX -= 1
+    if (inputManager.isKeyPressed('KeyD') || inputManager.isKeyPressed('ArrowRight')) inputX += 1
 
-    // Convert to isometric movement vectors
-    // In isometric view:
-    // W = move up-right (world: +x, -y)
-    // S = move down-left (world: -x, +y)  
-    // A = move up-left (world: -x, -y)
-    // D = move down-right (world: +x, +y)
+    // For isometric movement:
+    // W should move north (up-left in screen space)
+    // S should move south (down-right in screen space)
+    // A should move west (down-left in screen space)
+    // D should move east (up-right in screen space)
     
-    const isoX = x - y  // D/A input affects this
-    const isoY = x + y  // W/S input affects this
+    // Convert screen-space input to world-space movement
+    // This matches typical isometric game controls
+    const worldX = inputX + inputY  // Right movement
+    const worldY = inputY - inputX  // Down movement
     
     // Normalize diagonal movement so it's not faster
-    const length = Math.sqrt(isoX * isoX + isoY * isoY)
+    const length = Math.sqrt(worldX * worldX + worldY * worldY)
     if (length > 0) {
       return {
-        x: (isoX / length),
-        y: (isoY / length)
+        x: (worldX / length),
+        y: (worldY / length)
       }
     }
 
