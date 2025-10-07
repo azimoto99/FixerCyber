@@ -85,8 +85,13 @@ export class BuildingInteractionSystem {
     for (let dx = -1; dx <= 1; dx++) {
       for (let dy = -1; dy <= 1; dy++) {
         const chunk = this.worldSystem?.getChunk(`chunk_${chunkX + dx}_${chunkY + dy}`)
-        if (chunk?.generatedData?.doors) {
-          doors.push(...chunk.generatedData.doors)
+        if (chunk?.generatedData?.doors && Array.isArray(chunk.generatedData.doors)) {
+          // Filter doors to avoid duplicates and only get nearby ones
+          const chunkDoors = chunk.generatedData.doors.filter((door: DoorInfo) => {
+            const distance = this.distanceToPoint(playerPosition, { x: door.worldX, y: door.worldY })
+            return distance <= 200 // Only get doors within 200 pixels
+          })
+          doors.push(...chunkDoors)
         }
       }
     }

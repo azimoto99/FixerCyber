@@ -14,10 +14,10 @@ export function DebugPanel({ gameEngine }: DebugPanelProps) {
     const updateInterval = setInterval(() => {
       const movementSystem = gameEngine.getMovementSystem()
       if (movementSystem) {
-        const info = movementSystem.getDebugInfo()
+        const info = movementSystem.getDebugInfo ? movementSystem.getDebugInfo() : {}
         const playerPos = movementSystem.getPlayerPosition()
-        const velocity = movementSystem.getVelocity()
-        const speed = movementSystem.getMovementSpeed()
+        const velocity = movementSystem.getPlayerVelocity ? movementSystem.getPlayerVelocity() : { x: 0, y: 0 }
+        const speed = movementSystem.getMovementSpeed ? movementSystem.getMovementSpeed() : 200
         
         // Get world stats
         const worldSystem = gameEngine.getWorldSystem()

@@ -199,6 +199,21 @@ export class IsometricMovementSystem {
     return this.player ? { ...this.player.velocity } : { x: 0, y: 0 }
   }
 
+  getMovementSpeed(): number {
+    return this.moveSpeed
+  }
+
+  getDebugInfo(): any {
+    if (!this.player) return {}
+    
+    return {
+      velocity: this.player.velocity,
+      isMoving: this.player.isMoving,
+      inputBufferSize: 0,
+      lastServerUpdate: null
+    }
+  }
+
   // Movement configuration
   setMoveSpeed(speed: number) {
     this.moveSpeed = Math.max(50, Math.min(500, speed))

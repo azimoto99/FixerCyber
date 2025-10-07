@@ -284,8 +284,9 @@ export class IsometricRenderer {
         this.ctx.setLineDash([])
       }
     } else if (config.pattern === 'concrete') {
-      // Concrete cracks
-      if (Math.random() < 0.1) {
+      // Concrete cracks - use tile position for deterministic rendering
+      const shouldHaveCrack = ((tileX * 7 + tileY * 13) % 10) === 0
+      if (shouldHaveCrack) {
         this.ctx.strokeStyle = 'rgba(0, 0, 0, 0.3)'
         this.ctx.lineWidth = 0.5 * this.camera.zoom
         this.ctx.beginPath()
@@ -337,8 +338,9 @@ export class IsometricRenderer {
       }
     }
 
-    // Default ground types
-    if (Math.random() < 0.1) return 'grass'
+    // Default ground types - use deterministic pattern
+    const tileHash = (chunk.x * 1000 + chunk.y * 100 + tileX * 10 + tileY) % 10
+    if (tileHash === 0) return 'grass'
     return 'concrete'
   }
 
@@ -358,34 +360,56 @@ export class IsometricRenderer {
   }
 
   private processChunkForRendering(chunk: any, viewBounds: any, playerPosition?: { x: number, y: number }) {
-    const { buildings, npcs, infrastructure } = chunk.generatedData
+    const { buildings, npcs, infrastructure, loot } = chunk.generatedData
 
     // Add buildings to render queue
-    if (buildings) {
+    if (buildings && Array.isArray(buildings)) {
       buildings.forEach((building: any) => {
-        if (this.isInViewBounds(building, viewBounds)) {
-          const depth = building.y + building.height // Depth sorting by bottom edge
+        const bx = building.position?.x ?? building.x ?? 0
+        const by = building.position?.y ?? building.y ?? 0
+        const objPos = { x: bx, y: by }
+        if (this.isInViewBounds(objPos, viewBounds)) {
+          const depth = by + (building.size?.y ?? building.height ?? 40)
           this.addToRenderQueue(depth, () => this.renderBuilding3D(building, playerPosition))
         }
       })
     }
 
     // Add infrastructure (street lights, etc.)
-    if (infrastructure) {
+    if (infrastructure && Array.isArray(infrastructure)) {
       infrastructure.forEach((item: any) => {
-        if (this.isInViewBounds(item, viewBounds)) {
-          const depth = item.y
+        const ix = item.position?.x ?? item.x ?? 0
+        const iy = item.position?.y ?? item.y ?? 0
+        const objPos = { x: ix, y: iy }
+        if (this.isInViewBounds(objPos, viewBounds)) {
+          const depth = iy
           this.addToRenderQueue(depth, () => this.renderInfrastructure3D(item))
         }
       })
     }
 
     // Add NPCs to render queue
-    if (npcs) {
+    if (npcs && Array.isArray(npcs)) {
       npcs.forEach((npc: any) => {
-        if (this.isInViewBounds(npc, viewBounds)) {
-          const depth = npc.y
+        const nx = npc.position?.x ?? npc.x ?? 0
+        const ny = npc.position?.y ?? npc.y ?? 0
+        const objPos = { x: nx, y: ny }
+        if (this.isInViewBounds(objPos, viewBounds)) {
+          const depth = ny
           this.addToRenderQueue(depth, () => this.renderNPC3D(npc))
+        }
+      })
+    }
+
+    // Add loot items
+    if (loot && Array.isArray(loot)) {
+      loot.forEach((item: any) => {
+        const lx = item.position?.x ?? item.x ?? 0
+        const ly = item.position?.y ?? item.y ?? 0
+        const objPos = { x: lx, y: ly }
+        if (this.isInViewBounds(objPos, viewBounds)) {
+          const depth = ly
+          this.addToRenderQueue(depth, () => this.renderLootItem(item))
         }
       })
     }
@@ -917,24 +941,126 @@ export class IsometricRenderer {
   }
 
   private renderNPC3D(npc: any) {
-    const screenPos = this.worldToIso(npc.x / 50, npc.y / 50, 0)
+    const nx = npc.position?.x ?? npc.x ?? 0
+    const ny = npc.position?.y ?? npc.y ?? 0
+    const screenPos = this.worldToIso(nx / 50, ny / 50, 0)
     
     this.ctx.save()
     
-    // Simple NPC representation
-    const size = 8 * this.camera.zoom
-    this.ctx.fillStyle = npc.hostile ? '#ff4444' : '#44ff44'
+    // NPC body with cyberpunk style
+    const size = 10 * this.camera.zoom
+    
+    // Shadow
+    this.ctx.fillStyle = 'rgba(0, 0, 0, 0.3)'
+    this.ctx.beginPath()
+    this.ctx.ellipse(screenPos.x, screenPos.y + size, size * 0.8, size * 0.4, 0, 0, Math.PI * 2)
+    this.ctx.fill()
+    
+    // NPC body color based on type
+    const npcColors = {
+      guard: '#4444ff',
+      civilian: '#44ff44',
+      fixer: '#ff44ff',
+      thug: '#ff4444',
+      scavenger: '#ffaa44',
+      default: '#aaaaaa'
+    }
+    
+    const npcColor = npcColors[npc.type as keyof typeof npcColors] || npcColors.default
+    
+    // Body
+    this.ctx.fillStyle = npcColor
     this.ctx.beginPath()
     this.ctx.arc(screenPos.x, screenPos.y, size, 0, Math.PI * 2)
     this.ctx.fill()
     
-    // Name tag
-    if (npc.name) {
-      this.ctx.font = `${6 * this.camera.zoom}px monospace`
-      this.ctx.textAlign = 'center'
-      this.ctx.fillStyle = '#ffffff'
-      this.ctx.fillText(npc.name, screenPos.x, screenPos.y - size - 5)
+    // Outline
+    this.ctx.strokeStyle = '#ffffff'
+    this.ctx.lineWidth = 1.5 * this.camera.zoom
+    this.ctx.stroke()
+    
+    // Faction indicator
+    if (npc.faction) {
+      this.ctx.fillStyle = npc.faction === 'hostile' ? '#ff0000' : '#00ff00'
+      this.ctx.beginPath()
+      this.ctx.arc(screenPos.x, screenPos.y - size - 5, 2 * this.camera.zoom, 0, Math.PI * 2)
+      this.ctx.fill()
     }
+    
+    // Name/Type tag
+    this.ctx.font = `${7 * this.camera.zoom}px monospace`
+    this.ctx.textAlign = 'center'
+    this.ctx.fillStyle = '#ffffff'
+    this.ctx.fillText(npc.type?.toUpperCase() || 'NPC', screenPos.x, screenPos.y - size - 10)
+    
+    // Health bar if damaged
+    if (npc.health < 100) {
+      const barWidth = 20 * this.camera.zoom
+      const barHeight = 2 * this.camera.zoom
+      const healthPercent = npc.health / 100
+      
+      this.ctx.fillStyle = '#333333'
+      this.ctx.fillRect(screenPos.x - barWidth / 2, screenPos.y + size + 5, barWidth, barHeight)
+      
+      this.ctx.fillStyle = healthPercent > 0.5 ? '#00ff00' : '#ff0000'
+      this.ctx.fillRect(screenPos.x - barWidth / 2, screenPos.y + size + 5, barWidth * healthPercent, barHeight)
+    }
+    
+    this.ctx.restore()
+  }
+
+  private renderLootItem(item: any) {
+    const lx = item.position?.x ?? item.x ?? 0
+    const ly = item.position?.y ?? item.y ?? 0
+    const screenPos = this.worldToIso(lx / 50, ly / 50, 0)
+    
+    this.ctx.save()
+    
+    // Loot glow effect
+    const pulse = Math.sin(Date.now() * 0.005) * 0.3 + 0.7
+    const size = 6 * this.camera.zoom
+    
+    // Rarity colors
+    const rarityColors = {
+      common: '#888888',
+      uncommon: '#44ff44',
+      rare: '#4444ff',
+      epic: '#ff44ff',
+      legendary: '#ffaa00'
+    }
+    
+    const itemColor = rarityColors[item.rarity as keyof typeof rarityColors] || rarityColors.common
+    
+    // Glow effect
+    this.ctx.shadowColor = itemColor
+    this.ctx.shadowBlur = 15 * this.camera.zoom * pulse
+    
+    // Item icon (diamond shape)
+    this.ctx.fillStyle = itemColor
+    this.ctx.beginPath()
+    this.ctx.moveTo(screenPos.x, screenPos.y - size)
+    this.ctx.lineTo(screenPos.x + size, screenPos.y)
+    this.ctx.lineTo(screenPos.x, screenPos.y + size)
+    this.ctx.lineTo(screenPos.x - size, screenPos.y)
+    this.ctx.closePath()
+    this.ctx.fill()
+    
+    // Inner highlight
+    this.ctx.fillStyle = 'rgba(255, 255, 255, 0.5)'
+    this.ctx.beginPath()
+    this.ctx.moveTo(screenPos.x, screenPos.y - size / 2)
+    this.ctx.lineTo(screenPos.x + size / 2, screenPos.y)
+    this.ctx.lineTo(screenPos.x, screenPos.y + size / 2)
+    this.ctx.lineTo(screenPos.x - size / 2, screenPos.y)
+    this.ctx.closePath()
+    this.ctx.fill()
+    
+    // Item name on hover (always show for now)
+    this.ctx.shadowBlur = 0
+    this.ctx.font = `${6 * this.camera.zoom}px monospace`
+    this.ctx.textAlign = 'center'
+    this.ctx.fillStyle = '#ffffff'
+    this.ctx.fillText(item.name || 'Item', screenPos.x, screenPos.y - size - 5)
     
     this.ctx.restore()
   }
