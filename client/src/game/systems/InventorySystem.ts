@@ -1,4 +1,82 @@
-// Grid-based inventory system
+// Enhanced inventory system for looter shooter
+
+// Import loot types (compatible with LootSystem)
+type Rarity = 'common' | 'uncommon' | 'rare' | 'epic' | 'legendary'
+type WeaponType = 'pistol' | 'rifle' | 'smg' | 'shotgun' | 'cyber' | 'melee'
+type ArmorType = 'helmet' | 'vest' | 'boots' | 'gloves' | 'cyberware'
+
+interface LootItem {
+  id: string
+  name: string
+  type: 'weapon' | 'armor' | 'item'
+  rarity: Rarity
+  value: number
+  stackable: boolean
+  maxStack: number
+  description: string
+  iconColor: string
+}
+
+interface WeaponItem extends LootItem {
+  type: 'weapon'
+  weaponType: WeaponType
+  damage: number
+  accuracy: number
+  fireRate: number
+  range: number
+  durability: number
+  ammoType: string
+  specialEffect?: string
+}
+
+interface ArmorItem extends LootItem {
+  type: 'armor'
+  armorType: ArmorType
+  protection: number
+  durability: number
+  resistances: {
+    kinetic: number
+    energy: number
+    cyber: number
+  }
+  specialEffect?: string
+}
+
+
+interface InventorySlot {
+  id: string
+  item: LootItem | null
+  quantity: number
+  locked: boolean // For equipped items
+}
+
+interface EquippedGear {
+  primaryWeapon: WeaponItem | null
+  secondaryWeapon: WeaponItem | null
+  melee: WeaponItem | null
+  helmet: ArmorItem | null
+  vest: ArmorItem | null
+  boots: ArmorItem | null
+  gloves: ArmorItem | null
+  cyberware: ArmorItem | null
+}
+
+interface PlayerStats {
+  maxHealth: number
+  damage: number
+  accuracy: number
+  fireRate: number
+  range: number
+  protection: number
+  resistances: {
+    kinetic: number
+    energy: number
+    cyber: number
+  }
+  movementSpeed: number
+  hackingBonus: number
+}
+
 // Simple event emitter implementation
 class EventEmitter {
   private events: { [key: string]: Function[] } = {}
@@ -16,345 +94,322 @@ class EventEmitter {
     }
   }
 }
-import { InventoryItem, ItemType, Vector2 } from '../../types/game'
 
 export class InventorySystem extends EventEmitter {
-  private inventory: Map<string, InventoryItem> = new Map()
-  private gridWidth: number = 10
-  private gridHeight: number = 6
-  private grid: (string | null)[][] = []
-  private equippedItems: Map<string, string> = new Map()
+  private playerInventories: Map<string, InventorySlot[]> = new Map()
+  private playerEquipment: Map<string, EquippedGear> = new Map()
+  
+  // Inventory constraints
+  private readonly MAX_INVENTORY_SLOTS = 20
+  
+  // Base player stats (modified by equipment)
+  private readonly BASE_STATS: PlayerStats = {
+    maxHealth: 100,
+    damage: 10, // Base melee damage
+    accuracy: 50,
+    fireRate: 1000,
+    range: 100,
+    protection: 0,
+    resistances: { kinetic: 0, energy: 0, cyber: 0 },
+    movementSpeed: 300,
+    hackingBonus: 0
+  }
 
   constructor() {
     super()
-    this.initializeGrid()
   }
 
-  update(deltaTime: number) {
-    // Update item states, durability, etc.
-    this.updateItemStates(deltaTime)
+  update(_deltaTime: number, _inputManager?: any) {
+    // Could add auto-save, durability decay, etc.
   }
 
-  private updateItemStates(_deltaTime: number) {
-    this.inventory.forEach((item, _id) => {
-      if (item.stats.durability !== undefined) {
-        // Update durability based on usage
-        // This would be called when items are used
-      }
+  // Initialize player inventory
+  initializePlayerInventory(playerId: string): void {
+    const inventory: InventorySlot[] = []
+    
+    for (let i = 0; i < this.MAX_INVENTORY_SLOTS; i++) {
+      inventory.push({
+        id: `slot_${i}`,
+        item: null,
+        quantity: 0,
+        locked: false
+      })
+    }
+    
+    this.playerInventories.set(playerId, inventory)
+    
+    // Initialize empty equipment
+    this.playerEquipment.set(playerId, {
+      primaryWeapon: null,
+      secondaryWeapon: null,
+      melee: null,
+      helmet: null,
+      vest: null,
+      boots: null,
+      gloves: null,
+      cyberware: null
     })
+    
+    console.log(`🎒 Initialized inventory for player ${playerId}`)
   }
 
-  private initializeGrid() {
-    this.grid = Array(this.gridHeight).fill(null).map(() => Array(this.gridWidth).fill(null))
-  }
-
-  // Inventory management
-  addItem(item: InventoryItem): boolean {
-    if (this.inventory.has(item.id)) {
-      return false // Item already exists
-    }
-
-    // Check if item fits in inventory
-    const position = this.findItemPosition(item)
-    if (!position) {
-      this.emit('inventoryFull', { item })
+  // Add item to inventory
+  addItem(playerId: string, item: LootItem, quantity: number = 1): boolean {
+    const inventory = this.playerInventories.get(playerId)
+    if (!inventory) {
+      console.log(`❌ No inventory found for player ${playerId}`)
       return false
     }
 
-    // Place item in grid
-    this.placeItemInGrid(item, position)
-    this.inventory.set(item.id, item)
-    
-    this.emit('itemAdded', { item, position })
-    return true
-  }
-
-  removeItem(itemId: string): boolean {
-    const item = this.inventory.get(itemId)
-    if (!item) return false
-
-    // Remove from grid
-    this.removeItemFromGrid(item)
-    this.inventory.delete(itemId)
-    
-    // Remove from equipped items if equipped
-    this.unequipItem(itemId)
-    
-    this.emit('itemRemoved', { item })
-    return true
-  }
-
-  moveItem(itemId: string, newPosition: Vector2): boolean {
-    const item = this.inventory.get(itemId)
-    if (!item) return false
-
-    // Check if new position is valid
-    if (!this.canPlaceItemAt(item, newPosition)) {
-      this.emit('invalidPosition', { item, position: newPosition })
-      return false
+    // Check if item is stackable and already exists
+    if (item.stackable) {
+      const existingSlot = inventory.find(slot => 
+        slot.item?.id === item.id && 
+        slot.quantity < item.maxStack &&
+        !slot.locked
+      )
+      
+      if (existingSlot && existingSlot.item) {
+        const spaceAvailable = existingSlot.item.maxStack - existingSlot.quantity
+        const amountToAdd = Math.min(quantity, spaceAvailable)
+        
+        existingSlot.quantity += amountToAdd
+        quantity -= amountToAdd
+        
+        if (quantity === 0) {
+          this.emit('itemAdded', { playerId, item, quantity: amountToAdd, slotId: existingSlot.id })
+          return true
+        }
+      }
     }
 
-    // Remove from old position
-    this.removeItemFromGrid(item)
-    
-    // Place at new position
-    item.position = newPosition
-    this.placeItemInGrid(item, newPosition)
-    
-    this.emit('itemMoved', { item, position: newPosition })
+    // Find empty slot for remaining items
+    while (quantity > 0) {
+      const emptySlot = inventory.find(slot => slot.item === null && !slot.locked)
+      
+      if (!emptySlot) {
+        console.log(`❌ Inventory full for player ${playerId}`)
+        this.emit('inventoryFull', { playerId, item, quantity })
+        return false
+      }
+
+      const amountToAdd = item.stackable ? Math.min(quantity, item.maxStack) : 1
+      
+      emptySlot.item = { ...item }
+      emptySlot.quantity = amountToAdd
+      quantity -= amountToAdd
+
+      this.emit('itemAdded', { playerId, item, quantity: amountToAdd, slotId: emptySlot.id })
+      
+      if (!item.stackable) break
+    }
+
     return true
   }
 
-  // Equipment system
-  equipItem(itemId: string, slot: string): boolean {
-    const item = this.inventory.get(itemId)
-    if (!item) return false
+  // Remove item from inventory
+  removeItem(playerId: string, slotId: string, quantity: number = 1): LootItem | null {
+    const inventory = this.playerInventories.get(playerId)
+    if (!inventory) return null
 
-    // Check if item can be equipped in this slot
-    if (!this.canEquipInSlot(item, slot)) {
-      this.emit('invalidSlot', { item, slot })
-      return false
+    const slot = inventory.find(s => s.id === slotId)
+    if (!slot || !slot.item || slot.locked) return null
+
+    const removedQuantity = Math.min(quantity, slot.quantity)
+    const removedItem = { ...slot.item }
+    
+    slot.quantity -= removedQuantity
+
+    if (slot.quantity <= 0) {
+      slot.item = null
+      slot.quantity = 0
     }
 
-    // Unequip current item in slot
-    const currentItem = this.equippedItems.get(slot)
-    if (currentItem) {
-      this.unequipItem(currentItem)
+    this.emit('itemRemoved', { playerId, item: removedItem, quantity: removedQuantity, slotId })
+    
+    return removedItem
+  }
+
+  // Equip weapon or armor
+  equipItem(playerId: string, slotId: string): boolean {
+    const inventory = this.playerInventories.get(playerId)
+    const equipment = this.playerEquipment.get(playerId)
+    
+    if (!inventory || !equipment) return false
+
+    const slot = inventory.find(s => s.id === slotId)
+    if (!slot || !slot.item) return false
+
+    const item = slot.item
+
+    // Determine equipment slot
+    let equipSlot: keyof EquippedGear | null = null
+    
+    if (item.type === 'weapon') {
+      const weapon = item as WeaponItem
+      switch (weapon.weaponType) {
+        case 'melee':
+          equipSlot = 'melee'
+          break
+        case 'pistol':
+        case 'smg':
+          equipSlot = equipment.secondaryWeapon ? 'primaryWeapon' : 'secondaryWeapon'
+          break
+        case 'rifle':
+        case 'shotgun':
+        case 'cyber':
+          equipSlot = 'primaryWeapon'
+          break
+      }
+    } else if (item.type === 'armor') {
+      const armor = item as ArmorItem
+      equipSlot = armor.armorType as keyof EquippedGear
+    }
+
+    if (!equipSlot) return false
+
+    // Unequip current item if any
+    const currentEquipped = equipment[equipSlot] as LootItem
+    if (currentEquipped) {
+      this.unequipItem(playerId, equipSlot)
     }
 
     // Equip new item
-    this.equippedItems.set(slot, itemId)
-    this.emit('itemEquipped', { item, slot })
-    return true
-  }
+    ;(equipment[equipSlot] as LootItem) = item
+    slot.locked = true
 
-  unequipItem(itemId: string): boolean {
-    const item = this.inventory.get(itemId)
-    if (!item) return false
+    // Update player stats
+    this.updatePlayerStats(playerId)
 
-    // Find and remove from equipped items
-    for (const [slot, equippedId] of this.equippedItems.entries()) {
-      if (equippedId === itemId) {
-        this.equippedItems.delete(slot)
-        this.emit('itemUnequipped', { item, slot })
-        return true
-      }
-    }
-
-    return false
-  }
-
-  // Grid management
-  private findItemPosition(item: InventoryItem): Vector2 | null {
-    const height = item.gridSize.height || 1
-    const width = item.gridSize.width || 1
-    for (let y = 0; y <= this.gridHeight - height; y++) {
-      for (let x = 0; x <= this.gridWidth - width; x++) {
-        if (this.canPlaceItemAt(item, { x, y })) {
-          return { x, y }
-        }
-      }
-    }
-    return null
-  }
-
-  private canPlaceItemAt(item: InventoryItem, position: Vector2): boolean {
-    // Check bounds
-    if (position.x < 0 || position.y < 0) return false
-    const width = item.gridSize.width || 1
-    const height = item.gridSize.height || 1
-    if (position.x + width > this.gridWidth) return false
-    if (position.y + height > this.gridHeight) return false
-
-    // Check if all required cells are empty
-    for (let y = position.y; y < position.y + height; y++) {
-      for (let x = position.x; x < position.x + width; x++) {
-        if (this.grid[y][x] !== null) {
-          return false
-        }
-      }
-    }
-
-    return true
-  }
-
-  private placeItemInGrid(item: InventoryItem, position: Vector2) {
-    const height = item.gridSize.height || 1
-    const width = item.gridSize.width || 1
-    for (let y = position.y; y < position.y + height; y++) {
-      for (let x = position.x; x < position.x + width; x++) {
-        this.grid[y][x] = item.id
-      }
-    }
-  }
-
-  private removeItemFromGrid(item: InventoryItem) {
-    for (let y = 0; y < this.gridHeight; y++) {
-      for (let x = 0; x < this.gridWidth; x++) {
-        if (this.grid[y][x] === item.id) {
-          this.grid[y][x] = null
-        }
-      }
-    }
-  }
-
-  private canEquipInSlot(item: InventoryItem, slot: string): boolean {
-    const slotRequirements = {
-      weapon: [ItemType.WEAPON],
-      armor: [ItemType.ARMOR],
-      augmentation: [ItemType.AUGMENTATION],
-      utility: [ItemType.UTILITY]
-    }
-
-    const allowedTypes = slotRequirements[slot as keyof typeof slotRequirements]
-    return allowedTypes ? allowedTypes.includes(item.type) : false
-  }
-
-  // Item usage
-  useItem(itemId: string): boolean {
-    const item = this.inventory.get(itemId)
-    if (!item) return false
-
-    switch (item.type) {
-      case ItemType.CONSUMABLE:
-        return this.useConsumable(item)
-      case ItemType.AUGMENTATION:
-        return this.useAugmentation(item)
-      case ItemType.WEAPON:
-        return this.useWeapon(item)
-      default:
-        return false
-    }
-  }
-
-  private useConsumable(item: InventoryItem): boolean {
-    // Apply consumable effects
-    this.emit('consumableUsed', { item, effects: item.stats })
-    
-    // Remove item if it's a single-use consumable
-    if (item.stats.durability === 1) {
-      this.removeItem(item.id)
-    } else if (item.stats.durability) {
-      item.stats.durability -= 1
-    }
+    console.log(`⚔️ ${playerId} equipped ${item.name}`)
+    this.emit('itemEquipped', { playerId, item, equipSlot })
     
     return true
   }
 
-  private useAugmentation(item: InventoryItem): boolean {
-    // Apply augmentation effects
-    this.emit('augmentationUsed', { item, effects: item.stats })
+  // Unequip item
+  unequipItem(playerId: string, equipSlot: keyof EquippedGear): boolean {
+    const inventory = this.playerInventories.get(playerId)
+    const equipment = this.playerEquipment.get(playerId)
+    
+    if (!inventory || !equipment) return false
+
+    const equippedItem = equipment[equipSlot] as LootItem
+    if (!equippedItem) return false
+
+    // Find the locked slot with this item
+    const inventorySlot = inventory.find(slot => 
+      slot.item?.id === equippedItem.id && slot.locked
+    )
+    
+    if (inventorySlot) {
+      inventorySlot.locked = false
+    }
+
+    // Remove from equipment
+    ;(equipment[equipSlot] as LootItem | null) = null
+
+    // Update player stats
+    this.updatePlayerStats(playerId)
+
+    console.log(`📤 ${playerId} unequipped ${equippedItem.name}`)
+    this.emit('itemUnequipped', { playerId, item: equippedItem, equipSlot })
+    
     return true
   }
 
-  private useWeapon(item: InventoryItem): boolean {
-    // Weapon usage is handled by combat system
-    this.emit('weaponUsed', { item })
-    return true
+  // Calculate total player stats from equipment
+  private updatePlayerStats(playerId: string): void {
+    const equipment = this.playerEquipment.get(playerId)
+    if (!equipment) return
+
+    const stats: PlayerStats = { ...this.BASE_STATS }
+    
+    // Apply weapon stats
+    const primaryWeapon = equipment.primaryWeapon as WeaponItem
+    if (primaryWeapon) {
+      stats.damage = Math.max(stats.damage, primaryWeapon.damage)
+      stats.accuracy = Math.max(stats.accuracy, primaryWeapon.accuracy)
+      stats.fireRate = Math.min(stats.fireRate, primaryWeapon.fireRate) // Lower is better
+      stats.range = Math.max(stats.range, primaryWeapon.range)
+    }
+
+    // Apply armor stats
+    Object.values(equipment).forEach(item => {
+      if (item?.type === 'armor') {
+        const armor = item as ArmorItem
+        stats.maxHealth += armor.protection * 2 // 2 health per protection point
+        stats.protection += armor.protection
+        stats.resistances.kinetic += armor.resistances.kinetic
+        stats.resistances.energy += armor.resistances.energy
+        stats.resistances.cyber += armor.resistances.cyber
+      }
+    })
+
+    // Special cyberware bonuses
+    const cyberware = equipment.cyberware as ArmorItem
+    if (cyberware) {
+      stats.hackingBonus += 25
+      stats.movementSpeed += 50
+    }
+
+    this.emit('playerStatsUpdated', { playerId, stats })
   }
 
-  // Handle inventory actions
-  handleInventoryAction(action: string, data: any): boolean {
+  // Get inventory for UI display
+  getInventory(playerId: string): InventorySlot[] | null {
+    return this.playerInventories.get(playerId) || null
+  }
+
+  // Get equipped gear
+  getEquippedGear(playerId: string): EquippedGear | null {
+    return this.playerEquipment.get(playerId) || null
+  }
+
+  // Check if inventory has space
+  hasInventorySpace(playerId: string, item: LootItem, quantity: number = 1): boolean {
+    const inventory = this.playerInventories.get(playerId)
+    if (!inventory) return false
+
+    if (item.stackable) {
+      let remainingQuantity = quantity
+      
+      inventory.forEach(slot => {
+        if (slot.item?.id === item.id && !slot.locked) {
+          const spaceInStack = slot.item.maxStack - slot.quantity
+          remainingQuantity -= spaceInStack
+        }
+      })
+
+      if (remainingQuantity <= 0) return true
+
+      const emptySlots = inventory.filter(slot => slot.item === null && !slot.locked).length
+      const slotsNeeded = Math.ceil(remainingQuantity / item.maxStack)
+      
+      return emptySlots >= slotsNeeded
+    } else {
+      const emptySlots = inventory.filter(slot => slot.item === null && !slot.locked).length
+      return emptySlots >= quantity
+    }
+  }
+
+  // Clear player inventory (on death)
+  clearPlayerInventory(playerId: string): void {
+    this.playerInventories.delete(playerId)
+    this.playerEquipment.delete(playerId)
+    console.log(`🧯 Cleared inventory for player ${playerId}`)
+  }
+
+  // Handle inventory actions for compatibility
+  handleInventoryAction(action: string, data: any, playerId: string): boolean {
     switch (action) {
-      case 'move':
-        return this.moveItem(data.itemId, data.newPosition)
-      case 'rotate':
-        return this.rotateItem(data.itemId)
-      case 'use':
-        return this.useItem(data.itemId)
-      case 'drop':
-        return this.dropItem(data.itemId)
       case 'equip':
-        return this.equipItem(data.itemId, data.slot)
+        return this.equipItem(playerId, data.slotId)
       case 'unequip':
-        return this.unequipItem(data.slot)
+        return this.unequipItem(playerId, data.equipSlot)
       default:
         return false
     }
-  }
-
-  // Search and filtering
-  getItemsByType(type: ItemType): InventoryItem[] {
-    return Array.from(this.inventory.values()).filter(item => item.type === type)
-  }
-
-  getEquippedItems(): Map<string, InventoryItem> {
-    const equipped = new Map<string, InventoryItem>()
-    
-    for (const [slot, itemId] of this.equippedItems.entries()) {
-      const item = this.inventory.get(itemId)
-      if (item) {
-        equipped.set(slot, item)
-      }
-    }
-    
-    return equipped
-  }
-
-  getItemAtPosition(position: Vector2): InventoryItem | null {
-    const itemId = this.grid[position.y]?.[position.x]
-    return itemId ? this.inventory.get(itemId) || null : null
-  }
-
-  getEmptySlots(): Vector2[] {
-    const emptySlots: Vector2[] = []
-    
-    for (let y = 0; y < this.gridHeight; y++) {
-      for (let x = 0; x < this.gridWidth; x++) {
-        if (this.grid[y][x] === null) {
-          emptySlots.push({ x, y })
-        }
-      }
-    }
-    
-    return emptySlots
-  }
-
-  // Getters
-  getInventory(): InventoryItem[] {
-    return Array.from(this.inventory.values())
-  }
-
-  getGrid(): (string | null)[][] {
-    return this.grid
-  }
-
-  getGridSize(): Vector2 {
-    return { x: this.gridWidth, y: this.gridHeight }
-  }
-
-  getTotalSlots(): number {
-    return this.gridWidth * this.gridHeight
-  }
-
-  getUsedSlots(): number {
-    return this.inventory.size
-  }
-
-  getFreeSlots(): number {
-    return this.getTotalSlots() - this.getUsedSlots()
-  }
-
-  isFull(): boolean {
-    return this.getFreeSlots() === 0
-  }
-
-  // Missing methods
-  rotateItem(_itemId: string): boolean {
-    // TODO: Implement item rotation logic
-    return false
-  }
-
-  dropItem(_itemId: string): boolean {
-    // TODO: Implement item drop logic
-    return false
-  }
-
-  // Cleanup
-  clearInventory() {
-    this.inventory.clear()
-    this.initializeGrid()
-    this.equippedItems.clear()
   }
 }
 

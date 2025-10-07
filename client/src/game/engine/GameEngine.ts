@@ -124,7 +124,7 @@ export class GameEngine {
         this.worldSystem.handleInteraction(data)
         break
       case 'inventory':
-        this.inventorySystem.handleInventoryAction(data, null) // Added missing second parameter
+        this.inventorySystem.handleInventoryAction(data.action, data, 'demo-player') // Fixed parameters
         break
     }
   }
