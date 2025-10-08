@@ -173,6 +173,12 @@ export class GameEngine {
     // Initialize player in combat system
     this.combatSystem.initializePlayer(demoPlayer.id, 100, 0)
     
+    // Set initial camera position to follow player
+    const playerTileX = demoPlayer.position.x / 50
+    const playerTileY = demoPlayer.position.y / 50
+    this.renderer?.setCamera(playerTileX, playerTileY, 1.5)
+    console.log(`Initial camera set to (${playerTileX}, ${playerTileY})`)
+    
     console.log('Player initialized, world has players:', this.worldSystem.getPlayers().length)
   }
   
@@ -237,13 +243,11 @@ export class GameEngine {
       const currentCamera = this.renderer?.getCamera()
       if (!currentCamera) return
       
-      const lerpFactor = 0.2 // Snappier camera for ARPG feel
+      const lerpFactor = 0.3 // Snappier camera for ARPG feel
       
-      // Add slight camera lead based on player velocity (Diablo-like feel)
-      const vel = this.movementSystem.getPlayerVelocity?.()
-      const leadScale = 0.15
-      const targetX = playerPosition.x + (vel ? vel.x * leadScale : 0)
-      const targetY = playerPosition.y + (vel ? vel.y * leadScale : 0)
+      // Convert player world position to tile coordinates for camera
+      const targetX = playerPosition.x / 50 // Convert to tile coordinates
+      const targetY = playerPosition.y / 50
       
       // Safety checks for valid numbers
       if (!isFinite(targetX) || !isFinite(targetY)) return
@@ -254,6 +258,7 @@ export class GameEngine {
       // Safety checks for camera position
       if (isFinite(newX) && isFinite(newY)) {
         this.renderer?.setCamera(newX, newY, currentCamera.zoom)
+        console.log(`Camera updated to (${newX}, ${newY}) following player at (${targetX}, ${targetY})`)
       }
     } catch (error) {
       console.error('GameEngine: Error updating camera:', error)
@@ -403,7 +408,10 @@ export class GameEngine {
       // Render world with player position for interaction feedback
       const worldState = this.worldSystem?.getWorldState()
       if (worldState) {
+        console.log('GameEngine: Rendering world with', worldState.chunks?.length || 0, 'chunks')
         this.renderer?.renderWorld(worldState, playerPosition)
+      } else {
+        console.warn('GameEngine: No world state to render!')
       }
       
       // Render players

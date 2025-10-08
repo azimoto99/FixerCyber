@@ -602,7 +602,7 @@ export class IsometricRenderer {
   private drawInteractiveIndicator(basePos: any, width: number, depth: number, isNear: boolean) {
     if (!isNear) return
     
-    const pulse = Math.sin(Date.now() * 0.005) * 0.5 + 0.5
+    const pulse = Math.sin(Date.now() * 0.002) * 0.3 + 0.7 // Slower, less intense
     
     this.ctx.save()
     this.ctx.strokeStyle = '#00ff00'
@@ -788,7 +788,7 @@ export class IsometricRenderer {
     this.ctx.fillStyle = '#00ffff'
     this.ctx.shadowColor = '#00ffff'
     this.ctx.shadowBlur = 10 * this.camera.zoom
-    this.ctx.globalAlpha = 0.8 + Math.sin(time * 2) * 0.2
+    this.ctx.globalAlpha = 0.9 + Math.sin(time * 1) * 0.1 // Less flickering
     this.ctx.fillText(billboard.text || 'CYBER CORP', screenPos.x, screenPos.y - height / 2)
     this.ctx.globalAlpha = 1
     this.ctx.shadowBlur = 0
@@ -936,7 +936,7 @@ export class IsometricRenderer {
     this.ctx.save()
     
     // Loot glow effect
-    const pulse = Math.sin(Date.now() * 0.005) * 0.3 + 0.7
+    const pulse = Math.sin(Date.now() * 0.002) * 0.2 + 0.8 // Slower, less intense
     const size = 6 * this.camera.zoom
     
     // Rarity colors
@@ -998,7 +998,12 @@ export class IsometricRenderer {
   renderPlayer(player: any) {
     if (!player || !player.position) return
 
-    const screenPos = this.worldToIso(player.position.x / 50, player.position.y / 50, 0)
+    // Convert world coordinates to tile coordinates (50 pixels per tile)
+    const tileX = player.position.x / 50
+    const tileY = player.position.y / 50
+    const screenPos = this.worldToIso(tileX, tileY, 0)
+    
+    console.log(`Rendering player at world (${player.position.x}, ${player.position.y}) -> tile (${tileX}, ${tileY}) -> screen (${screenPos.x}, ${screenPos.y})`)
     
     // Render player directly instead of queueing
     this.ctx.save()
@@ -1343,11 +1348,11 @@ export class IsometricRenderer {
   }
 
   private renderCyberpunkAtmosphere() {
-    const time = Date.now() * 0.0001
+    const time = Date.now() * 0.00005 // Slower animation
     
     // Subtle animated mist
     this.ctx.globalCompositeOperation = 'screen'
-    this.ctx.globalAlpha = 0.1
+    this.ctx.globalAlpha = 0.05 // Less intense
     
     const mistGradient = this.ctx.createLinearGradient(
       0, this.canvas.height * (0.5 + Math.sin(time) * 0.1),

@@ -2,6 +2,9 @@
 // Prefer explicit VITE_API_URL; fallback to same-origin '/api' for production proxies
 const API_BASE_URL = ((import.meta as any).env?.VITE_API_URL as string) || '/api'
 
+// Mock data for development when backend is not available
+const MOCK_MODE = true // Set to false when backend is ready
+
 class ApiService {
   private async request<T>(
     endpoint: string,
@@ -81,6 +84,19 @@ class ApiService {
 
   // Auth endpoints
   async login(username: string, password: string) {
+    if (MOCK_MODE) {
+      // Mock successful login
+      return new Promise((resolve) => {
+        setTimeout(() => {
+          resolve({
+            success: true,
+            token: 'mock_token_' + Date.now(),
+            user: { id: 'mock_user', username, email: username + '@example.com' }
+          })
+        }, 500)
+      })
+    }
+    
     return this.request('/auth/login', {
       method: 'POST',
       body: JSON.stringify({ username, password }),
@@ -88,6 +104,19 @@ class ApiService {
   }
 
   async register(username: string, email: string, password: string) {
+    if (MOCK_MODE) {
+      // Mock successful registration
+      return new Promise((resolve) => {
+        setTimeout(() => {
+          resolve({
+            success: true,
+            message: 'Registration successful',
+            user: { id: 'mock_user', username, email }
+          })
+        }, 500)
+      })
+    }
+    
     return this.request('/auth/register', {
       method: 'POST',
       body: JSON.stringify({ username, email, password }),
@@ -100,10 +129,49 @@ class ApiService {
 
   // Player endpoints
   async getPlayer() {
+    if (MOCK_MODE) {
+      return new Promise((resolve) => {
+        setTimeout(() => {
+          resolve({
+            id: 'mock_player',
+            username: 'TestPlayer',
+            position: { x: 500, y: 500 },
+            health: 100,
+            credits: 1000,
+            isAlive: true,
+            inventory: [],
+            level: 1,
+            experience: 0
+          })
+        }, 300)
+      })
+    }
+    
     return this.request('/players/me')
   }
 
   async createPlayer(username: string) {
+    if (MOCK_MODE) {
+      return new Promise((resolve) => {
+        setTimeout(() => {
+          resolve({
+            success: true,
+            player: {
+              id: 'mock_player',
+              username,
+              position: { x: 500, y: 500 },
+              health: 100,
+              credits: 1000,
+              isAlive: true,
+              inventory: [],
+              level: 1,
+              experience: 0
+            }
+          })
+        }, 300)
+      })
+    }
+    
     return this.request('/players/create', {
       method: 'POST',
       body: JSON.stringify({ username }),

@@ -34,8 +34,8 @@ interface CityPlan {
 
 export class WorldGenerator {
   private static readonly CHUNK_SIZE = 1000
-  private static readonly BLOCK_SIZE_MIN = 80
-  private static readonly BLOCK_SIZE_MAX = 200
+  // private static readonly BLOCK_SIZE_MIN = 80
+  // private static readonly BLOCK_SIZE_MAX = 200
   private static readonly STREET_WIDTH_MAIN = 40
   private static readonly STREET_WIDTH_SECONDARY = 25
   private static readonly STREET_WIDTH_ALLEY = 15
@@ -96,114 +96,49 @@ export class WorldGenerator {
     }
   }
 
-  // Generate realistic street network
+  // Generate realistic street network with proper grid layout
   private static generateStreetNetwork(baseX: number, baseY: number, districtType: string, random: () => number): Street[] {
     const streets: Street[] = []
     const streetId = () => this.generateId()
 
-    // Determine chunk coordinates from base offsets
-    const chunkX = Math.round(baseX / this.CHUNK_SIZE)
-    const chunkY = Math.round(baseY / this.CHUNK_SIZE)
+    // Create a proper grid-based street system
+    const gridSize = 200 // Distance between major streets
+    const numHorizontalStreets = Math.floor(this.CHUNK_SIZE / gridSize) + 1
+    const numVerticalStreets = Math.floor(this.CHUNK_SIZE / gridSize) + 1
     
-    // Main arterial streets - these define the major structure
-    if (districtType === 'corporate') {
-      // Corporate districts have wide, straight streets in a modified grid
-      // Use row/column seeded offsets so roads align across chunk borders
-      const rowRandH0 = this.rowRandom(chunkY, 'corp_h0')
-      const rowRandH1 = this.rowRandom(chunkY, 'corp_h1')
-      const colRandV0 = this.colRandom(chunkX, 'corp_v0')
-
-      const h0y = baseY + this.CHUNK_SIZE * 0.3 + (rowRandH0() - 0.5) * 50
-      const h1y = baseY + this.CHUNK_SIZE * 0.7 + (rowRandH1() - 0.5) * 50
-      const v0x = baseX + this.CHUNK_SIZE * 0.4 + (colRandV0() - 0.5) * 50
-
-      streets.push({
-        id: streetId(),
-        type: 'main',
-        points: [
-          { x: baseX, y: h0y },
-          { x: baseX + this.CHUNK_SIZE, y: h0y }
-        ],
-        width: this.STREET_WIDTH_MAIN,
-        connections: []
-      })
-      
-      streets.push({
-        id: streetId(),
-        type: 'main',
-        points: [
-          { x: baseX, y: h1y },
-          { x: baseX + this.CHUNK_SIZE, y: h1y }
-        ],
-        width: this.STREET_WIDTH_MAIN,
-        connections: []
-      })
-      
-      // Vertical main street
-      streets.push({
-        id: streetId(),
-        type: 'main',
-        points: [
-          { x: v0x, y: baseY },
-          { x: v0x, y: baseY + this.CHUNK_SIZE }
-        ],
-        width: this.STREET_WIDTH_MAIN,
-        connections: []
-      })
-      
-    } else if (districtType === 'residential') {
-      // Residential has more organic, curved streets
-      const numMainStreets = 2 + Math.floor(random() * 2)
-      for (let i = 0; i < numMainStreets; i++) {
-        const curvature = (random() - 0.5) * 0.3
-        const startY = baseY + (i + 1) * this.CHUNK_SIZE / (numMainStreets + 1) + (random() - 0.5) * 100
-        
+    // Generate horizontal streets
+    for (let i = 0; i < numHorizontalStreets; i++) {
+      const y = baseY + i * gridSize
+      if (y >= baseY && y <= baseY + this.CHUNK_SIZE) {
         streets.push({
           id: streetId(),
-          type: 'secondary',
-          points: this.generateCurvedStreet(
-            { x: baseX, y: startY },
-            { x: baseX + this.CHUNK_SIZE, y: startY + curvature * this.CHUNK_SIZE },
-            random
-          ),
-          width: this.STREET_WIDTH_SECONDARY,
-          connections: []
-        })
-      }
-      
-    } else if (districtType === 'industrial') {
-      // Industrial has wide, functional streets
-      // Keep a consistent main road at mid-chunk with slight row-based wobble for continuity
-      const rowRand = this.rowRandom(chunkY, 'ind_h0')
-      const midY = baseY + this.CHUNK_SIZE * 0.5 + (rowRand() - 0.5) * 40
-      streets.push({
-        id: streetId(),
-        type: 'main',
-        points: [
-          { x: baseX, y: midY },
-          { x: baseX + this.CHUNK_SIZE, y: midY }
-        ],
-        width: this.STREET_WIDTH_MAIN + 20, // Extra wide for trucks
-        connections: []
-      })
-      
-    } else if (districtType === 'underground') {
-      // Underground has narrow, twisting passages
-      const numTunnels = 3 + Math.floor(random() * 3)
-      for (let i = 0; i < numTunnels; i++) {
-        streets.push({
-          id: streetId(),
-          type: 'alley',
-          points: this.generateTwistingPath(baseX, baseY, random),
-          width: this.STREET_WIDTH_ALLEY,
+          type: i % 3 === 0 ? 'main' : 'secondary', // Every 3rd street is main
+          points: [
+            { x: baseX, y: y },
+            { x: baseX + this.CHUNK_SIZE, y: y }
+          ],
+          width: i % 3 === 0 ? this.STREET_WIDTH_MAIN : this.STREET_WIDTH_SECONDARY,
           connections: []
         })
       }
     }
     
-    // Add secondary streets to connect main ones
-    const secondaryStreets = this.generateSecondaryStreets(streets, baseX, baseY, districtType, random)
-    streets.push(...secondaryStreets)
+    // Generate vertical streets
+    for (let i = 0; i < numVerticalStreets; i++) {
+      const x = baseX + i * gridSize
+      if (x >= baseX && x <= baseX + this.CHUNK_SIZE) {
+        streets.push({
+          id: streetId(),
+          type: i % 3 === 0 ? 'main' : 'secondary', // Every 3rd street is main
+          points: [
+            { x: x, y: baseY },
+            { x: x, y: baseY + this.CHUNK_SIZE }
+          ],
+          width: i % 3 === 0 ? this.STREET_WIDTH_MAIN : this.STREET_WIDTH_SECONDARY,
+          connections: []
+        })
+      }
+    }
     
     return streets
   }
@@ -325,58 +260,70 @@ export class WorldGenerator {
     return points
   }
 
-  // Generate city blocks from street network
-  private static generateCityBlocks(_streets: Street[], districtType: string, random: () => number): CityBlock[] {
+  // Generate city blocks from street network - buildings only along streets
+  private static generateCityBlocks(streets: Street[], districtType: string, random: () => number): CityBlock[] {
     const blocks: CityBlock[] = []
     
-    // For now, create simple rectangular blocks between streets
-    // This is a simplified version - a full implementation would use polygon intersection
+    // Create building lots only along street edges
+    const buildingDepth = 40 + random() * 20 // How deep buildings are from street
+    const minBuildingWidth = 30
+    const maxBuildingWidth = 80
     
-    if (districtType === 'corporate') {
-      // Create regular blocks in corporate areas
-      const blockSize = this.BLOCK_SIZE_MIN + random() * (this.BLOCK_SIZE_MAX - this.BLOCK_SIZE_MIN)
-      const numBlocksX = Math.floor(this.CHUNK_SIZE / blockSize)
-      const numBlocksY = Math.floor(this.CHUNK_SIZE / blockSize)
+    streets.forEach(street => {
+      if (street.points.length < 2) return
       
-      for (let x = 0; x < numBlocksX - 1; x++) {
-        for (let y = 0; y < numBlocksY - 1; y++) {
-          const blockX = x * blockSize + (random() - 0.5) * 20
-          const blockY = y * blockSize + (random() - 0.5) * 20
-          const blockW = blockSize + (random() - 0.5) * 40
-          const blockH = blockSize + (random() - 0.5) * 40
-          
-          blocks.push({
-            id: this.generateId(),
-            vertices: [
-              { x: blockX, y: blockY },
-              { x: blockX + blockW, y: blockY },
-              { x: blockX + blockW, y: blockY + blockH },
-              { x: blockX, y: blockY + blockH }
-            ],
-            lots: this.generateBuildingLots(blockX, blockY, blockW, blockH, districtType, random),
-            blockType: districtType
-          })
-        }
-      }
-    } else {
-      // Create more organic blocks for other districts
-      const numBlocks = 8 + Math.floor(random() * 12)
+      // Create buildings along this street
+      const streetLength = Math.sqrt(
+        Math.pow(street.points[street.points.length - 1].x - street.points[0].x, 2) +
+        Math.pow(street.points[street.points.length - 1].y - street.points[0].y, 2)
+      )
       
-      for (let i = 0; i < numBlocks; i++) {
-        const centerX = random() * this.CHUNK_SIZE
-        const centerY = random() * this.CHUNK_SIZE
-        const blockVertices = this.generateOrganicBlock(centerX, centerY, districtType, random)
+      const numBuildings = Math.floor(streetLength / (minBuildingWidth + 20))
+      
+      for (let i = 0; i < numBuildings; i++) {
+        const t = (i + 0.5) / numBuildings
+        const streetX = street.points[0].x + (street.points[street.points.length - 1].x - street.points[0].x) * t
+        const streetY = street.points[0].y + (street.points[street.points.length - 1].y - street.points[0].y) * t
         
-        if (blockVertices.length >= 3) {
-          blocks.push({
-            id: this.generateId(),
-            vertices: blockVertices,
-            lots: this.generateLotsFromBlock(blockVertices, districtType, random),
-            blockType: districtType
-          })
+        // Calculate perpendicular direction for building placement
+        const dx = street.points[street.points.length - 1].x - street.points[0].x
+        const dy = street.points[street.points.length - 1].y - street.points[0].y
+        const length = Math.sqrt(dx * dx + dy * dy)
+        const perpX = -dy / length
+        const perpY = dx / length
+        
+        // Place building on one side of street
+        const side = random() < 0.5 ? 1 : -1
+        const buildingX = streetX + perpX * (street.width / 2 + buildingDepth / 2) * side
+        const buildingY = streetY + perpY * (street.width / 2 + buildingDepth / 2) * side
+        
+        const buildingWidth = minBuildingWidth + random() * (maxBuildingWidth - minBuildingWidth)
+        
+        // Create building lot
+        const lot: BuildingLot = {
+          id: this.generateId(),
+          vertices: [
+            { x: buildingX - buildingWidth / 2, y: buildingY - buildingDepth / 2 },
+            { x: buildingX + buildingWidth / 2, y: buildingY - buildingDepth / 2 },
+            { x: buildingX + buildingWidth / 2, y: buildingY + buildingDepth / 2 },
+            { x: buildingX - buildingWidth / 2, y: buildingY + buildingDepth / 2 }
+          ],
+          frontage: [
+            { x: buildingX - buildingWidth / 2, y: buildingY - buildingDepth / 2 },
+            { x: buildingX + buildingWidth / 2, y: buildingY - buildingDepth / 2 }
+          ],
+          depth: buildingDepth
         }
+        
+        // Create block for this building
+        blocks.push({
+          id: this.generateId(),
+          vertices: lot.vertices,
+          lots: [lot],
+          blockType: districtType
+        })
       }
-    }
+    })
     
     return blocks
   }
@@ -548,14 +495,14 @@ export class WorldGenerator {
   // Determine if a lot should have a building
   private static shouldPlaceBuilding(_lot: BuildingLot, districtType: string, random: () => number): boolean {
     const densityByDistrict = {
-      corporate: 0.9,
-      residential: 0.7,
-      industrial: 0.8,
-      underground: 0.6,
-      wasteland: 0.3
+      corporate: 0.4, // Reduced from 0.9
+      residential: 0.3, // Reduced from 0.7
+      industrial: 0.4, // Reduced from 0.8
+      underground: 0.3, // Reduced from 0.6
+      wasteland: 0.2 // Reduced from 0.3
     }
     
-    const density = densityByDistrict[districtType as keyof typeof densityByDistrict] || 0.5
+    const density = densityByDistrict[districtType as keyof typeof densityByDistrict] || 0.3
     return random() < density
   }
 
@@ -651,8 +598,8 @@ export class WorldGenerator {
   private static generateInfrastructure(baseX: number, baseY: number, districtType: string, random: () => number): any[] {
     const infrastructure: any[] = []
     
-    // Streetlights
-    const numStreetlights = 15 + Math.floor(random() * 25)
+    // Streetlights - REDUCED DENSITY
+    const numStreetlights = 5 + Math.floor(random() * 8) // Reduced from 15-40 to 5-13
     for (let i = 0; i < numStreetlights; i++) {
       infrastructure.push({
         id: this.generateId(),
@@ -666,9 +613,9 @@ export class WorldGenerator {
       })
     }
     
-    // Signs and billboards
+    // Signs and billboards - REDUCED DENSITY
     if (districtType === 'corporate' || districtType === 'residential') {
-      const numSigns = 8 + Math.floor(random() * 12)
+      const numSigns = 3 + Math.floor(random() * 5) // Reduced from 8-20 to 3-8
       for (let i = 0; i < numSigns; i++) {
         infrastructure.push({
           id: this.generateId(),
@@ -686,8 +633,8 @@ export class WorldGenerator {
       }
     }
     
-    // Trash and debris
-    const numTrash = 20 + Math.floor(random() * 30)
+    // Trash and debris - REDUCED DENSITY
+    const numTrash = 5 + Math.floor(random() * 10) // Reduced from 20-50 to 5-15
     for (let i = 0; i < numTrash; i++) {
       infrastructure.push({
         id: this.generateId(),

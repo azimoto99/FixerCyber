@@ -66,10 +66,10 @@ export function GameCanvas() {
             setGameReady(true)
             gameEngine.start()
           },
-          // Spawn position
-          { x: 0, y: 0 },
-          // Chunk radius: 0 = only center chunk
-          0
+          // Spawn position - start at center of world
+          { x: 500, y: 500 },
+          // Chunk radius: 1 = 3x3 chunks around player
+          1
         )
       } catch (error) {
         console.error('❌ Game initialization failed:', error)
