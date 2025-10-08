@@ -275,7 +275,7 @@ export class GameEngine {
     onProgress?: (progress: LoadingProgress) => void,
     onComplete?: () => void,
     spawnPosition = { x: 0, y: 0 },
-    chunkRadius = 2
+    chunkRadius = 0
   ): Promise<void> {
     console.log('🌍 GameEngine: Starting world loading...')
     
@@ -409,10 +409,7 @@ export class GameEngine {
       // Render players
       const players = this.worldSystem?.getPlayers()
       if (players && players.length > 0) {
-        console.log('Rendering players:', players.length, 'at positions:', players.map(p => p.position))
         this.renderer?.renderPlayers(players)
-      } else {
-        console.log('No players to render')
       }
       
       // Render projectiles

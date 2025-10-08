@@ -68,8 +68,8 @@ export function GameCanvas() {
           },
           // Spawn position
           { x: 0, y: 0 },
-          // Chunk radius (smaller for faster loading)
-          2
+          // Chunk radius: 0 = only center chunk
+          0
         )
       } catch (error) {
         console.error('❌ Game initialization failed:', error)

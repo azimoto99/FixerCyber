@@ -36,7 +36,7 @@ export interface LightSource {
 export class IsometricRenderer {
   private canvas: HTMLCanvasElement
   private ctx: CanvasRenderingContext2D
-  private camera: { x: number; y: number; zoom: number } = { x: 0, y: 0, zoom: 2 }
+  private camera: { x: number; y: number; zoom: number } = { x: 0, y: 0, zoom: 1.5 }
   private tileSize = 64 // Base tile size in pixels
   private renderQueue: { depth: number; render: () => void }[] = []
   private lightSources: LightSource[] = []
@@ -201,49 +201,50 @@ export class IsometricRenderer {
     // Enhanced cyberpunk tile colors with gradients
     const tileConfigs = {
       street: {
-        baseColor: '#1a1a1f',
-        highlightColor: '#252530',
+        baseColor: '#2a2a2f',
+        highlightColor: '#3a3a45',
         pattern: 'asphalt',
-        hasGlow: false
+        hasGlow: true,
+        glowColor: 'rgba(255, 255, 100, 0.08)'
       },
       sidewalk: {
-        baseColor: '#2a2a35',
-        highlightColor: '#35354a',
+        baseColor: '#3a3a45',
+        highlightColor: '#45455a',
         pattern: 'concrete',
         hasGlow: true,
-        glowColor: 'rgba(0, 255, 255, 0.05)'
+        glowColor: 'rgba(0, 255, 255, 0.1)'
       },
       grass: {
-        baseColor: '#0a1a0a',
-        highlightColor: '#1a2a1a',
+        baseColor: '#1a2a1a',
+        highlightColor: '#2a3a2a',
         pattern: 'organic',
         hasGlow: false
       },
       concrete: {
-        baseColor: '#303040',
-        highlightColor: '#404055',
+        baseColor: '#404050',
+        highlightColor: '#505065',
         pattern: 'tech',
         hasGlow: true,
-        glowColor: 'rgba(255, 0, 255, 0.03)'
+        glowColor: 'rgba(100, 150, 255, 0.05)'
       },
       dirt: {
-        baseColor: '#2a1a0a',
-        highlightColor: '#3a2a1a',
+        baseColor: '#3a2a1a',
+        highlightColor: '#4a3a2a',
         pattern: 'rough',
         hasGlow: false
       },
       building: {
-        baseColor: '#1f1f2a',
-        highlightColor: '#2a2a3f',
+        baseColor: '#0a0a0a',
+        highlightColor: '#1a1a1a',
         pattern: 'metal',
         hasGlow: false
       },
       door: {
-        baseColor: '#4a3a2a',
-        highlightColor: '#5a4a3a',
+        baseColor: '#5a4a3a',
+        highlightColor: '#6a5a4a',
         pattern: 'tech',
         hasGlow: true,
-        glowColor: 'rgba(255, 200, 0, 0.2)'
+        glowColor: 'rgba(255, 200, 0, 0.3)'
       }
     }
     
@@ -487,15 +488,79 @@ export class IsometricRenderer {
       config.glowIntensity *= 1.5
     }
 
-    // Draw enhanced building walls with cyberpunk styling
-    this.drawEnhancedBuildingWalls(basePos, topPos, buildingWidth, buildingDepth, config, h3d)
+    // Draw building base (floor)
+    this.ctx.fillStyle = config.baseColor
+    this.ctx.beginPath()
+    this.ctx.moveTo(basePos.x, basePos.y)
+    this.ctx.lineTo(basePos.x + buildingWidth / 2, basePos.y + buildingDepth / 4)
+    this.ctx.lineTo(basePos.x, basePos.y + buildingDepth / 2)
+    this.ctx.lineTo(basePos.x - buildingWidth / 2, basePos.y + buildingDepth / 4)
+    this.ctx.closePath()
+    this.ctx.fill()
     
-    // Add detailed windows with neon glow
-    this.drawCyberpunkWindows(basePos, topPos, { x: buildingWidth, y: buildingDepth }, building, h3d, config)
+    // Left wall
+    this.ctx.fillStyle = this.darkenColor(config.baseColor, 0.8)
+    this.ctx.beginPath()
+    this.ctx.moveTo(basePos.x - buildingWidth / 2, basePos.y + buildingDepth / 4)
+    this.ctx.lineTo(basePos.x - buildingWidth / 2, topPos.y + buildingDepth / 4)
+    this.ctx.lineTo(topPos.x, topPos.y)
+    this.ctx.lineTo(basePos.x, basePos.y)
+    this.ctx.closePath()
+    this.ctx.fill()
     
-    // Add holographic signs and advertisements
-    if (building.type === 'tower' || building.type === 'office') {
-      this.drawHolographicSign(topPos, buildingWidth, building)
+    // Right wall (lighter)
+    this.ctx.fillStyle = config.baseColor
+    this.ctx.beginPath()
+    this.ctx.moveTo(basePos.x + buildingWidth / 2, basePos.y + buildingDepth / 4)
+    this.ctx.lineTo(basePos.x + buildingWidth / 2, topPos.y + buildingDepth / 4)
+    this.ctx.lineTo(topPos.x, topPos.y)
+    this.ctx.lineTo(basePos.x, basePos.y)
+    this.ctx.closePath()
+    this.ctx.fill()
+    
+    // Building roof/top
+    this.ctx.fillStyle = this.lightenColor(config.baseColor, 1.2)
+    this.ctx.beginPath()
+    this.ctx.moveTo(topPos.x, topPos.y)
+    this.ctx.lineTo(topPos.x + buildingWidth / 2, topPos.y + buildingDepth / 4)
+    this.ctx.lineTo(topPos.x, topPos.y + buildingDepth / 2)
+    this.ctx.lineTo(topPos.x - buildingWidth / 2, topPos.y + buildingDepth / 4)
+    this.ctx.closePath()
+    this.ctx.fill()
+    
+    // Neon accent lines on edges
+    this.ctx.strokeStyle = config.accentColor
+    this.ctx.lineWidth = 1.5 * this.camera.zoom
+    this.ctx.shadowColor = config.accentColor
+    this.ctx.shadowBlur = 10 * this.camera.zoom * config.glowIntensity
+    this.ctx.beginPath()
+    this.ctx.moveTo(basePos.x, basePos.y)
+    this.ctx.lineTo(topPos.x, topPos.y)
+    this.ctx.moveTo(basePos.x + buildingWidth / 2, basePos.y + buildingDepth / 4)
+    this.ctx.lineTo(topPos.x + buildingWidth / 2, topPos.y + buildingDepth / 4)
+    this.ctx.stroke()
+    this.ctx.shadowBlur = 0
+    
+    // Add windows
+    const windowRows = Math.max(2, Math.floor(h3d / 0.5))
+    const windowCols = Math.max(2, Math.floor(buildingWidth / (30 * this.camera.zoom)))
+    
+    for (let row = 0; row < windowRows; row++) {
+      for (let col = 0; col < windowCols; col++) {
+        const t = (row + 1) / (windowRows + 1)
+        const windowY = basePos.y + (topPos.y - basePos.y) * t
+        const windowX = basePos.x - buildingWidth / 3 + (col * buildingWidth / windowCols)
+        
+        // Window glow
+        const windowLit = Math.random() > 0.3 // 70% of windows are lit
+        if (windowLit) {
+          this.ctx.fillStyle = config.windowColor
+          this.ctx.shadowColor = config.windowColor
+          this.ctx.shadowBlur = 5 * this.camera.zoom * config.glowIntensity
+          this.ctx.fillRect(windowX, windowY, 3 * this.camera.zoom, 4 * this.camera.zoom)
+          this.ctx.shadowBlur = 0
+        }
+      }
     }
     
     // Add neon edge lighting
@@ -1066,8 +1131,13 @@ export class IsometricRenderer {
   }
 
   renderPlayers(players: any[]) {
-    if (!players) return
+    if (!players || players.length === 0) {
+      console.log('IsometricRenderer: No players to render')
+      return
+    }
 
+    console.log(`IsometricRenderer: Rendering ${players.length} player(s)`, players.map(p => ({id: p.id, pos: p.position})))
+    // Render players directly, not in queue (they need to render last/on top)
     players.forEach(p => this.renderPlayer(p))
   }
 
@@ -1075,25 +1145,24 @@ export class IsometricRenderer {
     if (!player || !player.position) return
 
     const screenPos = this.worldToIso(player.position.x / 50, player.position.y / 50, 0)
-    const depth = player.position.y // For depth sorting
-
-    this.addToRenderQueue(depth, () => {
-      this.ctx.save()
-      
-      // Enhanced isometric cyberpunk character
-      const scale = this.camera.zoom
-      const bodyHeight = 24 * scale
-      const bodyWidth = 16 * scale
-      
-      // Calculate player facing direction (if available)
-      const direction = player.direction || { x: 0, y: 1 } // Default facing south
-      const isFlipped = direction.x < 0
-      
-      // Shadow
-      this.ctx.fillStyle = 'rgba(0, 0, 0, 0.4)'
-      this.ctx.beginPath()
-      this.ctx.ellipse(screenPos.x, screenPos.y + bodyHeight / 3, bodyWidth / 2, bodyWidth / 4, 0, 0, Math.PI * 2)
-      this.ctx.fill()
+    
+    // Render player directly instead of queueing
+    this.ctx.save()
+    
+    // Enhanced isometric cyberpunk character
+    const scale = this.camera.zoom
+    const bodyHeight = 24 * scale
+    const bodyWidth = 16 * scale
+    
+    // Calculate player facing direction (if available)
+    const direction = player.direction || { x: 0, y: 1 } // Default facing south
+    const isFlipped = direction.x < 0
+    
+    // Shadow
+    this.ctx.fillStyle = 'rgba(0, 0, 0, 0.4)'
+    this.ctx.beginPath()
+    this.ctx.ellipse(screenPos.x, screenPos.y + bodyHeight / 3, bodyWidth / 2, bodyWidth / 4, 0, 0, Math.PI * 2)
+    this.ctx.fill()
       
       // Legs (cyber pants)
       const legOffset = 3 * scale
@@ -1236,9 +1305,8 @@ export class IsometricRenderer {
       this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)'
       this.ctx.lineWidth = 0.5 * scale
       this.ctx.strokeRect(screenPos.x - barWidth / 2, screenPos.y + bodyHeight / 2 + 5 * scale, barWidth, barHeight)
-      
-      this.ctx.restore()
-    })
+    
+    this.ctx.restore()
   }
 
   renderProjectiles(projectiles: any[]) {

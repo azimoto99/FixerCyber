@@ -156,12 +156,8 @@ export class IsometricMovementSystem {
 
     // Check collision with world geometry
     try {
-      // Convert world position to tile coordinates for collision checking
-      const tileX = Math.floor(position.x / 50)
-      const tileY = Math.floor(position.y / 50)
-      
-      // Check if position is blocked by buildings or walls
-      if (this.worldSystem.isBlocked && this.worldSystem.isBlocked({ x: tileX * 50, y: tileY * 50 })) {
+      // Pass world position directly (already in pixels)
+      if (this.worldSystem.isBlocked && this.worldSystem.isBlocked(position)) {
         return true
       }
 
