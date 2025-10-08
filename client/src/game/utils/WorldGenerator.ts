@@ -38,7 +38,7 @@ export class WorldGenerator {
   // private static readonly BLOCK_SIZE_MAX = 200
   private static readonly STREET_WIDTH_MAIN = 40
   private static readonly STREET_WIDTH_SECONDARY = 25
-  private static readonly STREET_WIDTH_ALLEY = 15
+  // private static readonly STREET_WIDTH_ALLEY = 15
 
   // Generate a realistic city chunk
   static generateChunk(x: number, y: number, districtType: string): any {
@@ -80,7 +80,7 @@ export class WorldGenerator {
     const baseY = chunkY * this.CHUNK_SIZE
     
     // Create street network based on district type and location
-    const streets = this.generateStreetNetwork(baseX, baseY, districtType, random)
+    const streets = this.generateStreetNetwork(baseX, baseY)
     
     // Generate city blocks from street intersections
     const blocks = this.generateCityBlocks(streets, districtType, random)
@@ -97,44 +97,86 @@ export class WorldGenerator {
   }
 
   // Generate realistic street network with proper grid layout
-  private static generateStreetNetwork(baseX: number, baseY: number, districtType: string, random: () => number): Street[] {
+  private static generateStreetNetwork(baseX: number, baseY: number): Street[] {
     const streets: Street[] = []
     const streetId = () => this.generateId()
 
-    // Create a proper grid-based street system
-    const gridSize = 200 // Distance between major streets
-    const numHorizontalStreets = Math.floor(this.CHUNK_SIZE / gridSize) + 1
-    const numVerticalStreets = Math.floor(this.CHUNK_SIZE / gridSize) + 1
+    // Create a proper cyberpunk city grid system
+    const mainStreetSpacing = 300 // Distance between major arterial streets
+    const secondaryStreetSpacing = 150 // Distance between secondary streets
+    // const alleySpacing = 75 // Distance between alleys
     
-    // Generate horizontal streets
-    for (let i = 0; i < numHorizontalStreets; i++) {
-      const y = baseY + i * gridSize
+    // Generate main arterial streets (every 300 units)
+    const numMainHorizontal = Math.floor(this.CHUNK_SIZE / mainStreetSpacing) + 1
+    const numMainVertical = Math.floor(this.CHUNK_SIZE / mainStreetSpacing) + 1
+    
+    // Main horizontal streets
+    for (let i = 0; i < numMainHorizontal; i++) {
+      const y = baseY + i * mainStreetSpacing
       if (y >= baseY && y <= baseY + this.CHUNK_SIZE) {
         streets.push({
           id: streetId(),
-          type: i % 3 === 0 ? 'main' : 'secondary', // Every 3rd street is main
+          type: 'main',
           points: [
             { x: baseX, y: y },
             { x: baseX + this.CHUNK_SIZE, y: y }
           ],
-          width: i % 3 === 0 ? this.STREET_WIDTH_MAIN : this.STREET_WIDTH_SECONDARY,
+          width: this.STREET_WIDTH_MAIN,
           connections: []
         })
       }
     }
     
-    // Generate vertical streets
-    for (let i = 0; i < numVerticalStreets; i++) {
-      const x = baseX + i * gridSize
+    // Main vertical streets
+    for (let i = 0; i < numMainVertical; i++) {
+      const x = baseX + i * mainStreetSpacing
       if (x >= baseX && x <= baseX + this.CHUNK_SIZE) {
         streets.push({
           id: streetId(),
-          type: i % 3 === 0 ? 'main' : 'secondary', // Every 3rd street is main
+          type: 'main',
           points: [
             { x: x, y: baseY },
             { x: x, y: baseY + this.CHUNK_SIZE }
           ],
-          width: i % 3 === 0 ? this.STREET_WIDTH_MAIN : this.STREET_WIDTH_SECONDARY,
+          width: this.STREET_WIDTH_MAIN,
+          connections: []
+        })
+      }
+    }
+    
+    // Generate secondary streets (every 150 units)
+    const numSecondaryHorizontal = Math.floor(this.CHUNK_SIZE / secondaryStreetSpacing) + 1
+    const numSecondaryVertical = Math.floor(this.CHUNK_SIZE / secondaryStreetSpacing) + 1
+    
+    // Secondary horizontal streets
+    for (let i = 0; i < numSecondaryHorizontal; i++) {
+      const y = baseY + i * secondaryStreetSpacing
+      if (y >= baseY && y <= baseY + this.CHUNK_SIZE) {
+        streets.push({
+          id: streetId(),
+          type: 'secondary',
+          points: [
+            { x: baseX, y: y },
+            { x: baseX + this.CHUNK_SIZE, y: y }
+          ],
+          width: this.STREET_WIDTH_SECONDARY,
+          connections: []
+        })
+      }
+    }
+    
+    // Secondary vertical streets
+    for (let i = 0; i < numSecondaryVertical; i++) {
+      const x = baseX + i * secondaryStreetSpacing
+      if (x >= baseX && x <= baseX + this.CHUNK_SIZE) {
+        streets.push({
+          id: streetId(),
+          type: 'secondary',
+          points: [
+            { x: x, y: baseY },
+            { x: x, y: baseY + this.CHUNK_SIZE }
+          ],
+          width: this.STREET_WIDTH_SECONDARY,
           connections: []
         })
       }
@@ -143,163 +185,48 @@ export class WorldGenerator {
     return streets
   }
 
-  // Helper method to generate curved streets
-  private static generateCurvedStreet(start: {x: number, y: number}, end: {x: number, y: number}, random: () => number): {x: number, y: number}[] {
-    const points = [start]
-    const segments = 5 + Math.floor(random() * 5)
-    
-    for (let i = 1; i < segments; i++) {
-      const t = i / segments
-      const baseX = start.x + (end.x - start.x) * t
-      const baseY = start.y + (end.y - start.y) * t
-      
-      // Add some curvature
-      const offset = Math.sin(t * Math.PI) * (random() - 0.5) * 50
-      
-      points.push({
-        x: baseX + offset,
-        y: baseY + offset * 0.5
-      })
-    }
-    
-    points.push(end)
-    return points
-  }
-
-  // Helper method to generate twisting underground paths
-  private static generateTwistingPath(baseX: number, baseY: number, random: () => number): {x: number, y: number}[] {
-    const points = []
-    const startX = baseX + random() * this.CHUNK_SIZE
-    const startY = baseY + random() * this.CHUNK_SIZE
-    
-    let currentX = startX
-    let currentY = startY
-    
-    points.push({ x: currentX, y: currentY })
-    
-    const numSegments = 8 + Math.floor(random() * 12)
-    for (let i = 0; i < numSegments; i++) {
-      const angle = random() * Math.PI * 2
-      const distance = 20 + random() * 80
-      
-      currentX += Math.cos(angle) * distance
-      currentY += Math.sin(angle) * distance
-      
-      // Keep within chunk bounds
-      currentX = Math.max(baseX + 50, Math.min(baseX + this.CHUNK_SIZE - 50, currentX))
-      currentY = Math.max(baseY + 50, Math.min(baseY + this.CHUNK_SIZE - 50, currentY))
-      
-      points.push({ x: currentX, y: currentY })
-    }
-    
-    return points
-  }
-
-  // Generate secondary streets to connect main streets
-  private static generateSecondaryStreets(_mainStreets: Street[], baseX: number, baseY: number, districtType: string, random: () => number): Street[] {
-    const secondaryStreets: Street[] = []
-    const streetId = () => this.generateId()
-    
-    if (districtType === 'corporate') {
-      // Add perpendicular connecting streets
-      for (let i = 0; i < 3; i++) {
-        const x = baseX + (i + 1) * this.CHUNK_SIZE / 4 + (random() - 0.5) * 100
-        secondaryStreets.push({
-          id: streetId(),
-          type: 'secondary',
-          points: [
-            { x, y: baseY },
-            { x, y: baseY + this.CHUNK_SIZE }
-          ],
-          width: this.STREET_WIDTH_SECONDARY,
-          connections: []
-        })
-      }
-    } else if (districtType === 'residential') {
-      // Add winding residential streets
-      const numStreets = 4 + Math.floor(random() * 4)
-      for (let i = 0; i < numStreets; i++) {
-        const startX = baseX + random() * this.CHUNK_SIZE
-        const startY = baseY + random() * this.CHUNK_SIZE
-        
-        secondaryStreets.push({
-          id: streetId(),
-          type: 'alley',
-          points: this.generateResidentialStreet(startX, startY, baseX, baseY, random),
-          width: this.STREET_WIDTH_ALLEY,
-          connections: []
-        })
-      }
-    }
-    
-    return secondaryStreets
-  }
-
-  // Generate a residential street that curves naturally
-  private static generateResidentialStreet(startX: number, startY: number, baseX: number, baseY: number, random: () => number): {x: number, y: number}[] {
-    const points = [{ x: startX, y: startY }]
-    let currentX = startX
-    let currentY = startY
-    let direction = random() * Math.PI * 2
-    
-    for (let i = 0; i < 6; i++) {
-      // Slight direction change
-      direction += (random() - 0.5) * Math.PI * 0.3
-      const distance = 60 + random() * 40
-      
-      currentX += Math.cos(direction) * distance
-      currentY += Math.sin(direction) * distance
-      
-      // Keep within chunk bounds
-      currentX = Math.max(baseX + 30, Math.min(baseX + this.CHUNK_SIZE - 30, currentX))
-      currentY = Math.max(baseY + 30, Math.min(baseY + this.CHUNK_SIZE - 30, currentY))
-      
-      points.push({ x: currentX, y: currentY })
-    }
-    
-    return points
-  }
+  // Removed unused street generation methods - using simple grid layout
 
   // Generate city blocks from street network - buildings only along streets
   private static generateCityBlocks(streets: Street[], districtType: string, random: () => number): CityBlock[] {
     const blocks: CityBlock[] = []
     
-    // Create building lots only along street edges
-    const buildingDepth = 40 + random() * 20 // How deep buildings are from street
-    const minBuildingWidth = 30
-    const maxBuildingWidth = 80
+    // Create building lots only along street edges with proper spacing
+    const buildingDepth = 50 + random() * 30 // How deep buildings are from street
+    const minBuildingWidth = 40
+    const maxBuildingWidth = 100
+    const buildingSpacing = 20 // Gap between buildings
     
     streets.forEach(street => {
       if (street.points.length < 2) return
       
-      // Create buildings along this street
-      const streetLength = Math.sqrt(
-        Math.pow(street.points[street.points.length - 1].x - street.points[0].x, 2) +
-        Math.pow(street.points[street.points.length - 1].y - street.points[0].y, 2)
-      )
+      // Calculate street direction
+      const dx = street.points[street.points.length - 1].x - street.points[0].x
+      const dy = street.points[street.points.length - 1].y - street.points[0].y
+      const streetLength = Math.sqrt(dx * dx + dy * dy)
+      // const streetDirX = dx / streetLength
+      // const streetDirY = dy / streetLength
+      const perpX = -dy / streetLength
+      const perpY = dx / streetLength
       
-      const numBuildings = Math.floor(streetLength / (minBuildingWidth + 20))
+      // Calculate how many buildings can fit along this street
+      const totalBuildingSpace = streetLength - buildingSpacing
+      const numBuildings = Math.floor(totalBuildingSpace / (minBuildingWidth + buildingSpacing))
       
       for (let i = 0; i < numBuildings; i++) {
-        const t = (i + 0.5) / numBuildings
-        const streetX = street.points[0].x + (street.points[street.points.length - 1].x - street.points[0].x) * t
-        const streetY = street.points[0].y + (street.points[street.points.length - 1].y - street.points[0].y) * t
+        // Calculate building position along street
+        const t = (buildingSpacing + i * (minBuildingWidth + buildingSpacing)) / streetLength
+        const streetX = street.points[0].x + dx * t
+        const streetY = street.points[0].y + dy * t
         
-        // Calculate perpendicular direction for building placement
-        const dx = street.points[street.points.length - 1].x - street.points[0].x
-        const dy = street.points[street.points.length - 1].y - street.points[0].y
-        const length = Math.sqrt(dx * dx + dy * dy)
-        const perpX = -dy / length
-        const perpY = dx / length
-        
-        // Place building on one side of street
-        const side = random() < 0.5 ? 1 : -1
+        // Place building on alternating sides of street for variety
+        const side = (i % 2 === 0) ? 1 : -1
         const buildingX = streetX + perpX * (street.width / 2 + buildingDepth / 2) * side
         const buildingY = streetY + perpY * (street.width / 2 + buildingDepth / 2) * side
         
         const buildingWidth = minBuildingWidth + random() * (maxBuildingWidth - minBuildingWidth)
         
-        // Create building lot
+        // Create building lot with proper orientation
         const lot: BuildingLot = {
           id: this.generateId(),
           vertices: [
@@ -328,120 +255,7 @@ export class WorldGenerator {
     return blocks
   }
 
-  // Generate building lots within a rectangular block
-  private static generateBuildingLots(blockX: number, blockY: number, blockW: number, blockH: number, districtType: string, random: () => number): BuildingLot[] {
-    const lots: BuildingLot[] = []
-    
-    if (districtType === 'corporate') {
-      // Corporate blocks often have 1-2 large buildings
-      if (random() < 0.4) {
-        // Single large building taking most of the block
-        lots.push({
-          id: this.generateId(),
-          vertices: [
-            { x: blockX + 10, y: blockY + 10 },
-            { x: blockX + blockW - 10, y: blockY + 10 },
-            { x: blockX + blockW - 10, y: blockY + blockH - 10 },
-            { x: blockX + 10, y: blockY + blockH - 10 }
-          ],
-          frontage: [
-            { x: blockX + 10, y: blockY + blockH - 10 },
-            { x: blockX + blockW - 10, y: blockY + blockH - 10 }
-          ],
-          depth: blockH - 20
-        })
-      } else {
-        // Split into 2-3 lots
-        const numLots = 2 + Math.floor(random() * 2)
-        const lotWidth = blockW / numLots
-        
-        for (let i = 0; i < numLots; i++) {
-          const lotX = blockX + i * lotWidth
-          lots.push({
-            id: this.generateId(),
-            vertices: [
-              { x: lotX + 5, y: blockY + 5 },
-              { x: lotX + lotWidth - 5, y: blockY + 5 },
-              { x: lotX + lotWidth - 5, y: blockY + blockH - 5 },
-              { x: lotX + 5, y: blockY + blockH - 5 }
-            ],
-            frontage: [
-              { x: lotX + 5, y: blockY + blockH - 5 },
-              { x: lotX + lotWidth - 5, y: blockY + blockH - 5 }
-            ],
-            depth: blockH - 10
-          })
-        }
-      }
-    } else {
-      // Residential and other districts have smaller, more varied lots
-      const numLots = 3 + Math.floor(random() * 5)
-      const lotWidth = blockW / numLots
-      
-      for (let i = 0; i < numLots; i++) {
-        const lotX = blockX + i * lotWidth + (random() - 0.5) * 10
-        const lotW = lotWidth + (random() - 0.5) * 20
-        const lotDepth = 30 + random() * (blockH - 60)
-        
-        lots.push({
-          id: this.generateId(),
-          vertices: [
-            { x: lotX, y: blockY },
-            { x: lotX + lotW, y: blockY },
-            { x: lotX + lotW, y: blockY + lotDepth },
-            { x: lotX, y: blockY + lotDepth }
-          ],
-          frontage: [
-            { x: lotX, y: blockY },
-            { x: lotX + lotW, y: blockY }
-          ],
-          depth: lotDepth
-        })
-      }
-    }
-    
-    return lots
-  }
-
-  // Generate organic block shapes for non-corporate districts
-  private static generateOrganicBlock(centerX: number, centerY: number, _districtType: string, random: () => number): {x: number, y: number}[] {
-    const vertices: {x: number, y: number}[] = []
-    const numVertices = 4 + Math.floor(random() * 4)
-    const baseRadius = 40 + random() * 60
-    
-    for (let i = 0; i < numVertices; i++) {
-      const angle = (i / numVertices) * Math.PI * 2
-      const radius = baseRadius + (random() - 0.5) * baseRadius * 0.3
-      
-      vertices.push({
-        x: centerX + Math.cos(angle) * radius,
-        y: centerY + Math.sin(angle) * radius
-      })
-    }
-    
-    return vertices
-  }
-
-  // Generate lots from organic block shapes
-  private static generateLotsFromBlock(blockVertices: {x: number, y: number}[], _districtType: string, random: () => number): BuildingLot[] {
-    const lots: BuildingLot[] = []
-    
-    // Simplified: create one lot that fills most of the block
-    const margin = 8 + random() * 12
-    const shrunkVertices = blockVertices.map(v => ({
-      x: v.x + (random() - 0.5) * margin,
-      y: v.y + (random() - 0.5) * margin
-    }))
-    
-    lots.push({
-      id: this.generateId(),
-      vertices: shrunkVertices,
-      frontage: [shrunkVertices[0], shrunkVertices[1]], // Simplified frontage
-      depth: 50 + random() * 30
-    })
-    
-    return lots
-  }
+  // Removed unused building lot generation methods - using street-based placement
 
   // Convert streets to the old road format for compatibility
   private static convertStreetsToRoads(streets: Street[]): any[] {
@@ -1074,27 +888,9 @@ export class WorldGenerator {
     return Math.random().toString(36).substr(2, 9)
   }
 
-  // Row/column seeded random for chunk border continuity
-  private static rowRandom(row: number, tag: string): () => number {
-    const seed = this.hashCoords(row, 0, tag)
-    return this.createSeededRandom(seed)
-  }
+  // Removed unused row/column random methods
 
-  private static colRandom(col: number, tag: string): () => number {
-    const seed = this.hashCoords(0, col, tag)
-    return this.createSeededRandom(seed)
-  }
-
-  private static hashCoords(x: number, y: number, tag: string): number {
-    // Simple string->int hash for deterministic seeding
-    const str = `${x}_${y}_${tag}`
-    let hash = 0
-    for (let i = 0; i < str.length; i++) {
-      hash = (hash << 5) - hash + str.charCodeAt(i)
-      hash |= 0
-    }
-    return Math.abs(hash) % 2147483647
-  }
+  // Removed unused hashCoords method
 
   private static generateLootTables(random: () => number, lootChance: number): any[] {
     const tables = []
