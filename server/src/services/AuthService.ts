@@ -1,15 +1,15 @@
-import bcrypt from 'bcryptjs'
-import jwt from 'jsonwebtoken'
-import { PrismaClient } from '@prisma/client'
-import { v4 as uuidv4 } from 'uuid'
+import bcrypt from 'bcryptjs';
+import jwt from 'jsonwebtoken';
+import { PrismaClient } from '@prisma/client';
+import { v4 as uuidv4 } from 'uuid';
 
 export class AuthService {
-  private prisma: PrismaClient
-  private jwtSecret: string
+  private prisma: PrismaClient;
+  private jwtSecret: string;
 
   constructor() {
-    this.prisma = new PrismaClient()
-    this.jwtSecret = process.env.JWT_SECRET || 'your-secret-key'
+    this.prisma = new PrismaClient();
+    this.jwtSecret = process.env.JWT_SECRET || 'your-secret-key';
   }
 
   async register(username: string, email: string, password: string) {
@@ -17,23 +17,20 @@ export class AuthService {
       // Check if user already exists
       const existingUser = await this.prisma.user.findFirst({
         where: {
-          OR: [
-            { username },
-            { email }
-          ]
-        }
-      })
+          OR: [{ username }, { email }],
+        },
+      });
 
       if (existingUser) {
         return {
           success: false,
-          error: 'Username or email already exists'
-        }
+          error: 'Username or email already exists',
+        };
       }
 
       // Hash password
-      const saltRounds = 12
-      const passwordHash = await bcrypt.hash(password, saltRounds)
+      const saltRounds = 12;
+      const passwordHash = await bcrypt.hash(password, saltRounds);
 
       // Create user
       const user = await this.prisma.user.create({
@@ -41,9 +38,9 @@ export class AuthService {
           id: uuidv4(),
           username,
           email,
-          passwordHash
-        }
-      })
+          passwordHash,
+        },
+      });
 
       return {
         success: true,
@@ -51,15 +48,15 @@ export class AuthService {
           id: user.id,
           username: user.username,
           email: user.email,
-          createdAt: user.createdAt
-        }
-      }
+          createdAt: user.createdAt,
+        },
+      };
     } catch (error) {
-      console.error('Registration error:', error)
+      console.error('Registration error:', error);
       return {
         success: false,
-        error: 'Registration failed'
-      }
+        error: 'Registration failed',
+      };
     }
   }
 
@@ -68,39 +65,36 @@ export class AuthService {
       // Find user
       const user = await this.prisma.user.findFirst({
         where: {
-          OR: [
-            { username },
-            { email: username }
-          ]
-        }
-      })
+          OR: [{ username }, { email: username }],
+        },
+      });
 
       if (!user) {
         return {
           success: false,
-          error: 'Invalid credentials'
-        }
+          error: 'Invalid credentials',
+        };
       }
 
       // Verify password
-      const isValidPassword = await bcrypt.compare(password, user.passwordHash)
-      
+      const isValidPassword = await bcrypt.compare(password, user.passwordHash);
+
       if (!isValidPassword) {
         return {
           success: false,
-          error: 'Invalid credentials'
-        }
+          error: 'Invalid credentials',
+        };
       }
 
       // Generate JWT token
       const token = jwt.sign(
-        { 
+        {
           userId: user.id,
-          username: user.username 
+          username: user.username,
         },
         this.jwtSecret,
         { expiresIn: '24h' }
-      )
+      );
 
       return {
         success: true,
@@ -108,52 +102,49 @@ export class AuthService {
         user: {
           id: user.id,
           username: user.username,
-          email: user.email
-        }
-      }
+          email: user.email,
+        },
+      };
     } catch (error) {
-      console.error('Login error:', error)
+      console.error('Login error:', error);
       return {
         success: false,
-        error: 'Login failed'
-      }
+        error: 'Login failed',
+      };
     }
   }
 
   async verifyToken(token: string) {
     try {
-      const decoded = jwt.verify(token, this.jwtSecret) as any
-      
+      const decoded = jwt.verify(token, this.jwtSecret) as any;
+
       const user = await this.prisma.user.findUnique({
         where: { id: decoded.userId },
         select: {
           id: true,
           username: true,
           email: true,
-          createdAt: true
-        }
-      })
+          createdAt: true,
+        },
+      });
 
       if (!user) {
         return {
           success: false,
-          error: 'User not found'
-        }
+          error: 'User not found',
+        };
       }
 
       return {
         success: true,
-        user
-      }
+        user,
+      };
     } catch (error) {
-      console.error('Token verification error:', error)
+      console.error('Token verification error:', error);
       return {
         success: false,
-        error: 'Invalid token'
-      }
+        error: 'Invalid token',
+      };
     }
   }
 }
-
-
-

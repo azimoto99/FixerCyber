@@ -1,32 +1,29 @@
-import { PrismaClient } from '@prisma/client'
-import { v4 as uuidv4 } from 'uuid'
+import { PrismaClient } from '@prisma/client';
+import { v4 as uuidv4 } from 'uuid';
 
 export class ContractService {
-  private prisma: PrismaClient
+  private prisma: PrismaClient;
 
   constructor() {
-    this.prisma = new PrismaClient()
+    this.prisma = new PrismaClient();
   }
 
   async getAvailableContracts(playerId: string) {
     try {
       const contracts = await this.prisma.contract.findMany({
         where: {
-          OR: [
-            { playerId: null },
-            { playerId }
-          ],
-          status: 'AVAILABLE'
+          OR: [{ playerId: null }, { playerId }],
+          status: 'AVAILABLE',
         },
         include: {
-          fixer: true
-        }
-      })
+          fixer: true,
+        },
+      });
 
-      return contracts
+      return contracts;
     } catch (error) {
-      console.error('Get available contracts error:', error)
-      return []
+      console.error('Get available contracts error:', error);
+      return [];
     }
   }
 
@@ -36,77 +33,81 @@ export class ContractService {
         where: {
           playerId,
           status: {
-            in: ['ACTIVE', 'IN_PROGRESS']
-          }
+            in: ['ACTIVE', 'IN_PROGRESS'],
+          },
         },
         include: {
-          fixer: true
-        }
-      })
+          fixer: true,
+        },
+      });
 
-      return contracts
+      return contracts;
     } catch (error) {
-      console.error('Get player contracts error:', error)
-      return []
+      console.error('Get player contracts error:', error);
+      return [];
     }
   }
 
   async acceptContract(playerId: string, contractId: string) {
     try {
       const contract = await this.prisma.contract.findUnique({
-        where: { id: contractId }
-      })
+        where: { id: contractId },
+      });
 
       if (!contract) {
         return {
           success: false,
-          error: 'Contract not found'
-        }
+          error: 'Contract not found',
+        };
       }
 
       if (contract.status !== 'AVAILABLE') {
         return {
           success: false,
-          error: 'Contract is not available'
-        }
+          error: 'Contract is not available',
+        };
       }
 
       const updatedContract = await this.prisma.contract.update({
         where: { id: contractId },
         data: {
           playerId,
-          status: 'ACTIVE'
-        }
-      })
+          status: 'ACTIVE',
+        },
+      });
 
       return {
         success: true,
-        contract: updatedContract
-      }
+        contract: updatedContract,
+      };
     } catch (error) {
-      console.error('Accept contract error:', error)
+      console.error('Accept contract error:', error);
       return {
         success: false,
-        error: 'Failed to accept contract'
-      }
+        error: 'Failed to accept contract',
+      };
     }
   }
 
-  async completeContract(playerId: string, contractId: string, completionData: any) {
+  async completeContract(
+    playerId: string,
+    contractId: string,
+    completionData: any
+  ) {
     try {
       const contract = await this.prisma.contract.findFirst({
         where: {
           id: contractId,
           playerId,
-          status: 'ACTIVE'
-        }
-      })
+          status: 'ACTIVE',
+        },
+      });
 
       if (!contract) {
         return {
           success: false,
-          error: 'Contract not found or not active'
-        }
+          error: 'Contract not found or not active',
+        };
       }
 
       // Update contract status
@@ -114,39 +115,39 @@ export class ContractService {
         where: { id: contractId },
         data: {
           status: 'COMPLETED',
-          completedAt: new Date()
-        }
-      })
+          completedAt: new Date(),
+        },
+      });
 
       // Award credits to player
       const player = await this.prisma.player.findFirst({
-        where: { userId: playerId }
-      })
+        where: { userId: playerId },
+      });
 
       if (player) {
         await this.prisma.player.update({
           where: { id: player.id },
           data: {
             credits: {
-              increment: contract.rewardCredits
-            }
-          }
-        })
+              increment: contract.rewardCredits,
+            },
+          },
+        });
       }
 
       return {
         success: true,
         reward: contract.rewardCredits,
         player: {
-          credits: (player?.credits || 0) + contract.rewardCredits
-        }
-      }
+          credits: (player?.credits || 0) + contract.rewardCredits,
+        },
+      };
     } catch (error) {
-      console.error('Complete contract error:', error)
+      console.error('Complete contract error:', error);
       return {
         success: false,
-        error: 'Failed to complete contract'
-      }
+        error: 'Failed to complete contract',
+      };
     }
   }
 
@@ -157,35 +158,35 @@ export class ContractService {
           id: contractId,
           playerId,
           status: {
-            in: ['ACTIVE', 'IN_PROGRESS']
-          }
-        }
-      })
+            in: ['ACTIVE', 'IN_PROGRESS'],
+          },
+        },
+      });
 
       if (!contract) {
         return {
           success: false,
-          error: 'Contract not found or not active'
-        }
+          error: 'Contract not found or not active',
+        };
       }
 
       await this.prisma.contract.update({
         where: { id: contractId },
         data: {
           status: 'CANCELLED',
-          cancelledAt: new Date()
-        }
-      })
+          cancelledAt: new Date(),
+        },
+      });
 
       return {
-        success: true
-      }
+        success: true,
+      };
     } catch (error) {
-      console.error('Cancel contract error:', error)
+      console.error('Cancel contract error:', error);
       return {
         success: false,
-        error: 'Failed to cancel contract'
-      }
+        error: 'Failed to cancel contract',
+      };
     }
   }
 
@@ -200,17 +201,14 @@ export class ContractService {
           rewardCredits: contractData.rewardCredits || 0,
           timeLimit: contractData.timeLimit || 30,
           status: 'AVAILABLE',
-          description: contractData.description || ''
-        }
-      })
+          description: contractData.description || '',
+        },
+      });
 
-      return contract
+      return contract;
     } catch (error) {
-      console.error('Create contract error:', error)
-      return null
+      console.error('Create contract error:', error);
+      return null;
     }
   }
 }
-
-
-

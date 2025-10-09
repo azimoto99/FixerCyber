@@ -1,11 +1,11 @@
-import { PrismaClient } from '@prisma/client'
-import { v4 as uuidv4 } from 'uuid'
+import { PrismaClient } from '@prisma/client';
+import { v4 as uuidv4 } from 'uuid';
 
 export class PlayerService {
-  private prisma: PrismaClient
+  private prisma: PrismaClient;
 
   constructor() {
-    this.prisma = new PrismaClient()
+    this.prisma = new PrismaClient();
   }
 
   async getPlayer(userId: string) {
@@ -14,14 +14,14 @@ export class PlayerService {
         where: { userId },
         include: {
           inventoryItems: true,
-          housing: true
-        }
-      })
+          housing: true,
+        },
+      });
 
-      return player
+      return player;
     } catch (error) {
-      console.error('Get player error:', error)
-      return null
+      console.error('Get player error:', error);
+      return null;
     }
   }
 
@@ -29,11 +29,11 @@ export class PlayerService {
     try {
       // Check if player already exists
       const existingPlayer = await this.prisma.player.findFirst({
-        where: { userId }
-      })
+        where: { userId },
+      });
 
       if (existingPlayer) {
-        return null
+        return null;
       }
 
       // Create new player
@@ -46,25 +46,25 @@ export class PlayerService {
           positionY: 0,
           health: 100,
           credits: 0,
-          isAlive: true
-        }
-      })
+          isAlive: true,
+        },
+      });
 
-      return player
+      return player;
     } catch (error) {
-      console.error('Create player error:', error)
-      return null
+      console.error('Create player error:', error);
+      return null;
     }
   }
 
   async updatePlayerPosition(userId: string, x: number, y: number) {
     try {
       const player = await this.prisma.player.findFirst({
-        where: { userId }
-      })
+        where: { userId },
+      });
 
       if (!player) {
-        return false
+        return false;
       }
 
       await this.prisma.player.update({
@@ -72,14 +72,14 @@ export class PlayerService {
         data: {
           positionX: x,
           positionY: y,
-          lastSeen: new Date()
-        }
-      })
+          lastSeen: new Date(),
+        },
+      });
 
-      return true
+      return true;
     } catch (error) {
-      console.error('Update position error:', error)
-      return false
+      console.error('Update position error:', error);
+      return false;
     }
   }
 
@@ -88,31 +88,31 @@ export class PlayerService {
       const player = await this.prisma.player.findFirst({
         where: { userId },
         include: {
-          inventoryItems: true
-        }
-      })
+          inventoryItems: true,
+        },
+      });
 
-      return player?.inventoryItems || []
+      return player?.inventoryItems || [];
     } catch (error) {
-      console.error('Get inventory error:', error)
-      return []
+      console.error('Get inventory error:', error);
+      return [];
     }
   }
 
   async updatePlayerInventory(userId: string, items: any[]) {
     try {
       const player = await this.prisma.player.findFirst({
-        where: { userId }
-      })
+        where: { userId },
+      });
 
       if (!player) {
-        return false
+        return false;
       }
 
       // Delete existing inventory items
       await this.prisma.inventoryItem.deleteMany({
-        where: { playerId: player.id }
-      })
+        where: { playerId: player.id },
+      });
 
       // Create new inventory items
       if (items.length > 0) {
@@ -125,67 +125,64 @@ export class PlayerService {
             gridX: item.position?.x || 0,
             gridY: item.position?.y || 0,
             gridWidth: item.gridSize?.width || 1,
-            gridHeight: item.gridSize?.height || 1
-          }))
-        })
+            gridHeight: item.gridSize?.height || 1,
+          })),
+        });
       }
 
-      return true
+      return true;
     } catch (error) {
-      console.error('Update inventory error:', error)
-      return false
+      console.error('Update inventory error:', error);
+      return false;
     }
   }
 
   async updatePlayerHealth(userId: string, health: number) {
     try {
       const player = await this.prisma.player.findFirst({
-        where: { userId }
-      })
+        where: { userId },
+      });
 
       if (!player) {
-        return false
+        return false;
       }
 
       await this.prisma.player.update({
         where: { id: player.id },
         data: {
           health: Math.max(0, Math.min(100, health)),
-          isAlive: health > 0
-        }
-      })
+          isAlive: health > 0,
+        },
+      });
 
-      return true
+      return true;
     } catch (error) {
-      console.error('Update health error:', error)
-      return false
+      console.error('Update health error:', error);
+      return false;
     }
   }
 
   async updatePlayerCredits(userId: string, credits: number) {
     try {
       const player = await this.prisma.player.findFirst({
-        where: { userId }
-      })
+        where: { userId },
+      });
 
       if (!player) {
-        return false
+        return false;
       }
 
       await this.prisma.player.update({
         where: { id: player.id },
         data: {
-          credits: Math.max(0, credits)
-        }
-      })
+          credits: Math.max(0, credits),
+        },
+      });
 
-      return true
+      return true;
     } catch (error) {
-      console.error('Update credits error:', error)
-      return false
+      console.error('Update credits error:', error);
+      return false;
     }
   }
 }
-
-
-
