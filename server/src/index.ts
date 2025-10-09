@@ -1,59 +1,78 @@
+import { PrismaClient } from '@prisma/client';
+import cors from 'cors';
 import express from 'express';
+import helmet from 'helmet';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
-import cors from 'cors';
-import helmet from 'helmet';
-import dotenv from 'dotenv';
-import { PrismaClient } from '@prisma/client';
+
+// Import configuration
+import config from './config';
+
+// Import middleware
+import { generalRateLimit } from './middleware/rateLimiting';
+import { requestLogger, requestSizeLimit, sanitizeInput, validateRequest } from './middleware/security';
 
 // Import routes
 import authRoutes from './routes/auth';
-import playerRoutes from './routes/players';
 import contractRoutes from './routes/contracts';
+import playerRoutes from './routes/players';
 import worldRoutes from './routes/world';
 
 // Import services
 import { GameServer } from './game/GameServer';
-import { AuthService } from './services/AuthService';
+import { Logger } from './utils/logger';
 
-// Load environment variables
-dotenv.config();
+// Initialize logger
+const logger = Logger.getInstance();
 
 const app = express();
 const server = createServer(app);
+
+// Enhanced Socket.io configuration
 const io = new Server(server, {
   cors: {
-    origin: [
-      'https://www.fixer.gg',
-      'https://fixer.gg',
-      'http://localhost:3000',
-      ...(process.env.CLIENT_URL ? [process.env.CLIENT_URL] : []),
-    ],
+    origin: config.clientUrls,
     methods: ['GET', 'POST'],
     credentials: true,
   },
+  pingTimeout: config.socketio.pingTimeout,
+  pingInterval: config.socketio.pingInterval,
+  maxHttpBufferSize: config.socketio.maxHttpBufferSize,
 });
 
 // Initialize Prisma
 const prisma = new PrismaClient();
 
-// Middleware
-app.use(helmet());
-app.use(
-  cors({
-    origin: [
-      'https://www.fixer.gg',
-      'https://fixer.gg',
-      'http://localhost:3000',
-      ...(process.env.CLIENT_URL ? [process.env.CLIENT_URL] : []),
-    ],
-    credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
-  })
-);
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+// Trust proxy if configured (for proper IP detection behind load balancers)
+if (config.security.trustProxy) {
+  app.set('trust proxy', true);
+}
+
+// Security middleware (applied first)
+app.use(helmet({
+  contentSecurityPolicy: config.isDevelopment ? false : undefined,
+  crossOriginEmbedderPolicy: false, // Allow game assets
+}));
+
+app.use(requestLogger);
+app.use(sanitizeInput);
+app.use(validateRequest);
+app.use(requestSizeLimit());
+
+// CORS configuration
+app.use(cors({
+  origin: config.clientUrls,
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+}));
+
+// Body parsing middleware
+app.use(express.json({ limit: config.security.maxRequestSize }));
+app.use(express.urlencoded({ extended: true, limit: config.security.maxRequestSize }));
+
+// Rate limiting middleware
+app.use(generalRateLimit);
 
 // Routes
 app.use('/api/auth', authRoutes);

@@ -1,54 +1,55 @@
 import { PrismaClient } from '@prisma/client';
-import { v4 as uuidv4 } from 'uuid';
+import { WorldManager } from '../game/WorldManager';
+import { Vector2, WorldChunk } from '../types';
 
 export class WorldService {
   private prisma: PrismaClient;
+  private worldManager: WorldManager;
 
   constructor() {
     this.prisma = new PrismaClient();
+    this.worldManager = new WorldManager();
   }
 
-  async getChunk(x: number, y: number) {
-    try {
-      let chunk = await this.prisma.worldChunk.findFirst({
-        where: { x, y },
-      });
-
-      if (!chunk) {
-        // Generate new chunk if it doesn't exist
-        chunk = await this.generateChunk(x, y);
-      }
-
-      return chunk;
-    } catch (error) {
-      console.error('Get chunk error:', error);
-      return null;
-    }
+  /**
+   * Get a chunk at the specified coordinates
+   */
+  async getChunk(x: number, y: number): Promise<WorldChunk | null> {
+    return await this.worldManager.getChunk(x, y);
   }
 
-  async generateChunk(x: number, y: number) {
-    try {
-      // Generate procedural world data
-      const districtType = this.getDistrictType(x, y);
-      const generatedData = this.generateChunkData(x, y, districtType);
-
-      const chunk = await this.prisma.worldChunk.create({
-        data: {
-          id: uuidv4(),
-          x,
-          y,
-          districtType,
-          generatedData,
-        },
-      });
-
-      return chunk;
-    } catch (error) {
-      console.error('Generate chunk error:', error);
-      return null;
-    }
+  /**
+   * Get chunks in a radius around a position
+   */
+  async getChunksInRadius(centerX: number, centerY: number, radius: number): Promise<WorldChunk[]> {
+    return await this.worldManager.getChunksInRadius(centerX, centerY, radius);
   }
 
+  /**
+   * Find a path between two points
+   */
+  async findPath(start: Vector2, end: Vector2): Promise<Vector2[]> {
+    // Get chunks that might contain the path
+    const maxDistance = Math.max(Math.abs(end.x - start.x), Math.abs(end.y - start.y));
+    const chunks = await this.worldManager.getChunksInRadius(
+      (start.x + end.x) / 2, 
+      (start.y + end.y) / 2, 
+      maxDistance + 100
+    );
+    
+    return this.worldManager.findPath(start, end, chunks);
+  }
+
+  /**
+   * Unload a chunk from cache
+   */
+  unloadChunk(x: number, y: number): void {
+    this.worldManager.unloadChunk(x, y);
+  }
+
+  /**
+   * Get nearby players
+   */
   async getNearbyPlayers(x: number, y: number, radius: number) {
     try {
       const players = await this.prisma.player.findMany({
@@ -80,14 +81,13 @@ export class WorldService {
     }
   }
 
+  /**
+   * Get world information and statistics
+   */
   async getWorldInfo() {
     try {
-      const stats = await this.prisma.worldChunk.aggregate({
-        _count: {
-          id: true,
-        },
-      });
-
+      const worldStats = await this.worldManager.getWorldStats();
+      
       const activePlayers = await this.prisma.player.count({
         where: {
           isAlive: true,
@@ -98,7 +98,9 @@ export class WorldService {
       });
 
       return {
-        totalChunks: stats._count.id,
+        totalChunks: worldStats.totalChunks,
+        chunksByDistrict: worldStats.chunksByDistrict,
+        cachedChunks: worldStats.cachedChunks,
         activePlayers,
         worldSize: {
           minX: -100,
@@ -111,154 +113,142 @@ export class WorldService {
       console.error('Get world info error:', error);
       return {
         totalChunks: 0,
+        chunksByDistrict: {},
+        cachedChunks: 0,
         activePlayers: 0,
         worldSize: { minX: -100, maxX: 100, minY: -100, maxY: 100 },
       };
     }
   }
 
-  private getDistrictType(x: number, y: number): string {
-    // Simple district generation based on coordinates
-    const distance = Math.sqrt(x * x + y * y);
+  /**
+   * Get world statistics
+   */
+  async getWorldStats() {
+    return await this.worldManager.getWorldStats();
+  }
 
-    if (distance < 10) {
-      return 'corporate';
-    } else if (distance < 25) {
-      return 'residential';
-    } else if (distance < 40) {
-      return 'industrial';
-    } else if (distance < 60) {
-      return 'underground';
-    } else {
-      return 'wasteland';
+  /**
+   * Check if a position is walkable
+   */
+  async isWalkable(x: number, y: number): Promise<boolean> {
+    const chunkX = Math.floor(x / 64);
+    const chunkY = Math.floor(y / 64);
+    const chunk = await this.getChunk(chunkX, chunkY);
+    
+    if (!chunk) return false;
+    
+    const localX = x % 64;
+    const localY = y % 64;
+    
+    if (localX < 0 || localX >= 64 || localY < 0 || localY >= 64) {
+      return false;
     }
+    
+    return chunk.generatedData.tiles[localX][localY].walkable;
   }
 
-  private generateChunkData(x: number, y: number, districtType: string) {
-    // Generate buildings, roads, and other world elements
-    const buildings = this.generateBuildings(x, y, districtType);
-    const roads = this.generateRoads(x, y);
-    const npcs = this.generateNPCs(x, y, districtType);
-
-    return {
-      buildings,
-      roads,
-      npcs,
-      generatedAt: new Date().toISOString(),
-    };
+  /**
+   * Get tile information at a specific position
+   */
+  async getTileAt(x: number, y: number) {
+    const chunkX = Math.floor(x / 64);
+    const chunkY = Math.floor(y / 64);
+    const chunk = await this.getChunk(chunkX, chunkY);
+    
+    if (!chunk) return null;
+    
+    const localX = x % 64;
+    const localY = y % 64;
+    
+    if (localX < 0 || localX >= 64 || localY < 0 || localY >= 64) {
+      return null;
+    }
+    
+    return chunk.generatedData.tiles[localX][localY];
   }
 
-  private generateBuildings(x: number, y: number, districtType: string) {
+  /**
+   * Get buildings in a specific area
+   */
+  async getBuildingsInArea(x: number, y: number, width: number, height: number) {
+    const chunks = await this.getChunksInRadius(x + width/2, y + height/2, Math.max(width, height));
     const buildings = [];
-    const buildingCount = Math.floor(Math.random() * 5) + 2;
-
-    for (let i = 0; i < buildingCount; i++) {
-      buildings.push({
-        id: uuidv4(),
-        type: this.getBuildingType(districtType),
-        position: {
-          x: Math.random() * 1000,
-          y: Math.random() * 1000,
-        },
-        size: {
-          width: Math.random() * 100 + 50,
-          height: Math.random() * 100 + 50,
-        },
-        hackable: Math.random() > 0.5,
-        securityLevel: Math.floor(Math.random() * 5) + 1,
-      });
+    
+    for (const chunk of chunks) {
+      for (const building of chunk.generatedData.buildings) {
+        if (building.position.x >= x && building.position.x <= x + width &&
+            building.position.y >= y && building.position.y <= y + height) {
+          buildings.push(building);
+        }
+      }
     }
-
+    
     return buildings;
   }
 
-  private generateRoads(x: number, y: number) {
+  /**
+   * Get roads in a specific area
+   */
+  async getRoadsInArea(x: number, y: number, width: number, height: number) {
+    const chunks = await this.getChunksInRadius(x + width/2, y + height/2, Math.max(width, height));
     const roads = [];
-
-    // Generate main roads
-    if (Math.random() > 0.3) {
-      roads.push({
-        id: uuidv4(),
-        type: 'main',
-        start: { x: 0, y: 500 },
-        end: { x: 1000, y: 500 },
-        width: 80,
-      });
+    
+    for (const chunk of chunks) {
+      for (const road of chunk.generatedData.roads) {
+        // Check if road intersects with the area
+        for (const point of road.points) {
+          if (point.x >= x && point.x <= x + width &&
+              point.y >= y && point.y <= y + height) {
+            roads.push(road);
+            break;
+          }
+        }
+      }
     }
-
-    if (Math.random() > 0.3) {
-      roads.push({
-        id: uuidv4(),
-        type: 'main',
-        start: { x: 500, y: 0 },
-        end: { x: 500, y: 1000 },
-        width: 80,
-      });
-    }
-
+    
     return roads;
   }
 
-  private generateNPCs(x: number, y: number, districtType: string) {
+  /**
+   * Get NPCs in a specific area
+   */
+  async getNPCsInArea(x: number, y: number, radius: number) {
+    const chunks = await this.getChunksInRadius(x, y, radius);
     const npcs = [];
-    const npcCount = Math.floor(Math.random() * 3) + 1;
-
-    for (let i = 0; i < npcCount; i++) {
-      npcs.push({
-        id: uuidv4(),
-        type: this.getNPCType(districtType),
-        position: {
-          x: Math.random() * 1000,
-          y: Math.random() * 1000,
-        },
-        behavior: 'patrol',
-        faction: this.getFaction(districtType),
-      });
+    
+    for (const chunk of chunks) {
+      for (const npc of chunk.generatedData.npcs) {
+        const distance = Math.sqrt(
+          Math.pow(npc.position.x - x, 2) + Math.pow(npc.position.y - y, 2)
+        );
+        if (distance <= radius) {
+          npcs.push(npc);
+        }
+      }
     }
-
+    
     return npcs;
   }
 
-  private getBuildingType(districtType: string): string {
-    const buildingTypes = {
-      corporate: ['office', 'tower', 'plaza'],
-      residential: ['apartment', 'house', 'complex'],
-      industrial: ['warehouse', 'factory', 'depot'],
-      underground: ['hideout', 'club', 'market'],
-      wasteland: ['ruin', 'shack', 'outpost'],
-    };
-
-    const types = buildingTypes[districtType as keyof typeof buildingTypes] || [
-      'building',
-    ];
-    return types[Math.floor(Math.random() * types.length)];
-  }
-
-  private getNPCType(districtType: string): string {
-    const npcTypes = {
-      corporate: ['guard', 'executive', 'security'],
-      residential: ['civilian', 'resident', 'worker'],
-      industrial: ['worker', 'foreman', 'technician'],
-      underground: ['fixer', 'dealer', 'thug'],
-      wasteland: ['scavenger', 'raider', 'survivor'],
-    };
-
-    const types = npcTypes[districtType as keyof typeof npcTypes] || ['npc'];
-    return types[Math.floor(Math.random() * types.length)];
-  }
-
-  private getFaction(districtType: string): string {
-    const factions = {
-      corporate: ['corporate', 'government'],
-      residential: ['civilian', 'neutral'],
-      industrial: ['corporate', 'union'],
-      underground: ['gang', 'syndicate'],
-      wasteland: ['raider', 'scavenger'],
-    };
-
-    const factionList = factions[districtType as keyof typeof factions] || [
-      'neutral',
-    ];
-    return factionList[Math.floor(Math.random() * factionList.length)];
+  /**
+   * Get loot spawns in a specific area
+   */
+  async getLootSpawnsInArea(x: number, y: number, radius: number) {
+    const chunks = await this.getChunksInRadius(x, y, radius);
+    const lootSpawns = [];
+    
+    for (const chunk of chunks) {
+      for (const lootSpawn of chunk.generatedData.lootSpawns) {
+        const distance = Math.sqrt(
+          Math.pow(lootSpawn.position.x - x, 2) + Math.pow(lootSpawn.position.y - y, 2)
+        );
+        if (distance <= radius) {
+          lootSpawns.push(lootSpawn);
+        }
+      }
+    }
+    
+    return lootSpawns;
   }
 }

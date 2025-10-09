@@ -224,8 +224,12 @@ async function main() {
   ]
 
   for (const chunkData of initialChunks) {
-    await prisma.worldChunk.create({
-      data: {
+    await prisma.worldChunk.upsert({
+      where: { 
+        x_y: { x: chunkData.x, y: chunkData.y }
+      },
+      update: {},
+      create: {
         ...chunkData,
         generatedData: {
           buildings: [],

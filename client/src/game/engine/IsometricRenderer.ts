@@ -64,6 +64,7 @@ export class IsometricRenderer {
   private camera: Camera;
   private tileSize: number = 64; // Base tile size for isometric projection
   private renderQueue: RenderItem[] = [];
+  private lightingSystem: any = null; // Will be set externally to avoid circular imports
   
   // Performance monitoring
   private performanceStats: PerformanceStats = {
@@ -654,5 +655,37 @@ export class IsometricRenderer {
     this.canvas.width = width;
     this.canvas.height = height;
     this.setupRenderer();
+    
+    // Resize lighting system if available
+    if (this.lightingSystem && this.lightingSystem.resize) {
+      this.lightingSystem.resize(width, height);
+    }
+  }
+
+  /**
+   * Set lighting system (called externally to avoid circular imports)
+   */
+  setLightingSystem(lightingSystem: any): void {
+    this.lightingSystem = lightingSystem;
+  }
+
+  /**
+   * Get lighting system
+   */
+  getLightingSystem(): any {
+    return this.lightingSystem;
+  }
+
+  /**
+   * Render with lighting effects
+   */
+  renderWithLighting(): void {
+    // Process render queue first
+    this.processRenderQueue();
+    
+    // Apply lighting effects if available
+    if (this.lightingSystem && this.lightingSystem.render) {
+      this.lightingSystem.render();
+    }
   }
 }
