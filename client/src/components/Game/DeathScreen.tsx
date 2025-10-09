@@ -1,9 +1,9 @@
 interface DeathScreenProps {
   deathInfo: {
-    killerId: string
-    hadHousing: boolean
-  }
-  onRestart: () => void
+    killerId: string;
+    hadHousing: boolean;
+  };
+  onRestart: () => void;
 }
 
 export function DeathScreen({ deathInfo, onRestart }: DeathScreenProps) {
@@ -15,17 +15,18 @@ export function DeathScreen({ deathInfo, onRestart }: DeathScreenProps) {
           <h1 className="text-7xl font-bold text-red-600 mb-4 glitch-text tracking-wider">
             FLATLINED
           </h1>
-          <div className="text-2xl text-red-400 mb-2">
-            PERMADEATH ACTIVATED
-          </div>
+          <div className="text-2xl text-red-400 mb-2">PERMADEATH ACTIVATED</div>
           <p className="text-xl text-cyberpunk-light">
-            Terminated by: <span className="text-red-500 font-bold">{deathInfo.killerId}</span>
+            Terminated by:{' '}
+            <span className="text-red-500 font-bold">{deathInfo.killerId}</span>
           </p>
         </div>
-        
+
         {/* Lost Progress Warning */}
         <div className="mb-8 border border-red-600 rounded-lg p-6 bg-red-900/20">
-          <h2 className="text-2xl text-red-500 font-bold mb-4">ALL PROGRESS LOST</h2>
+          <h2 className="text-2xl text-red-500 font-bold mb-4">
+            ALL PROGRESS LOST
+          </h2>
           <div className="text-cyberpunk-light space-y-2">
             <p>✗ All items deleted</p>
             <p>✗ All credits lost</p>
@@ -36,7 +37,7 @@ export function DeathScreen({ deathInfo, onRestart }: DeathScreenProps) {
             )}
           </div>
         </div>
-        
+
         {/* Restart Button */}
         <button
           onClick={onRestart}
@@ -44,7 +45,7 @@ export function DeathScreen({ deathInfo, onRestart }: DeathScreenProps) {
         >
           START NEW RUN
         </button>
-        
+
         {/* Roguelike Tips */}
         <div className="mt-8 text-cyberpunk-light/60 text-sm space-y-1">
           <p>TIP: Rent housing at safehouses to save your progress</p>
@@ -52,7 +53,7 @@ export function DeathScreen({ deathInfo, onRestart }: DeathScreenProps) {
           <p>TIP: Each run is unique - learn from your mistakes</p>
         </div>
       </div>
-      
+
       <style>{`
         @keyframes glitch {
           0% {
@@ -87,5 +88,5 @@ export function DeathScreen({ deathInfo, onRestart }: DeathScreenProps) {
         }
       `}</style>
     </div>
-  )
+  );
 }

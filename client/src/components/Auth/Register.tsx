@@ -1,36 +1,36 @@
-import { useState } from 'react'
-import { useGameStore } from '../../stores/gameStore'
-import { apiService } from '../../services/api'
+import { useState } from 'react';
+import { useGameStore } from '../../stores/gameStore';
+import { apiService } from '../../services/api';
 
 export function Register() {
-  const [username, setUsername] = useState('')
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [confirmPassword, setConfirmPassword] = useState('')
-  const [loading, setLoading] = useState(false)
-  const { setCurrentView } = useGameStore()
+  const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const { setCurrentView } = useGameStore();
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    
+    e.preventDefault();
+
     if (password !== confirmPassword) {
-      alert('Passwords do not match')
-      return
+      alert('Passwords do not match');
+      return;
     }
-    
-    setLoading(true)
-    
+
+    setLoading(true);
+
     try {
-      await apiService.register(username, email, password)
-      alert('Registration successful. Please log in.')
-      setCurrentView('login')
+      await apiService.register(username, email, password);
+      alert('Registration successful. Please log in.');
+      setCurrentView('login');
     } catch (error) {
-      console.error('Registration failed:', error)
-      alert('Registration failed. Please try again.')
+      console.error('Registration failed:', error);
+      alert('Registration failed. Please try again.');
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   return (
     <div className="w-full max-w-md mx-auto">
@@ -38,7 +38,7 @@ export function Register() {
         <h1 className="text-3xl font-bold text-cyberpunk-primary text-center mb-8">
           NEW IDENTITY
         </h1>
-        
+
         <form onSubmit={handleSubmit} className="space-y-6">
           <div>
             <label className="block text-sm font-medium text-cyberpunk-light mb-2">
@@ -47,13 +47,13 @@ export function Register() {
             <input
               type="text"
               value={username}
-              onChange={(e) => setUsername(e.target.value)}
+              onChange={e => setUsername(e.target.value)}
               className="cyber-input w-full"
               placeholder="Choose your handle"
               required
             />
           </div>
-          
+
           <div>
             <label className="block text-sm font-medium text-cyberpunk-light mb-2">
               Email
@@ -61,13 +61,13 @@ export function Register() {
             <input
               type="email"
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              onChange={e => setEmail(e.target.value)}
               className="cyber-input w-full"
               placeholder="Enter your contact"
               required
             />
           </div>
-          
+
           <div>
             <label className="block text-sm font-medium text-cyberpunk-light mb-2">
               Password
@@ -75,13 +75,13 @@ export function Register() {
             <input
               type="password"
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              onChange={e => setPassword(e.target.value)}
               className="cyber-input w-full"
               placeholder="Create a passcode"
               required
             />
           </div>
-          
+
           <div>
             <label className="block text-sm font-medium text-cyberpunk-light mb-2">
               Confirm Password
@@ -89,13 +89,13 @@ export function Register() {
             <input
               type="password"
               value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
+              onChange={e => setConfirmPassword(e.target.value)}
               className="cyber-input w-full"
               placeholder="Confirm your passcode"
               required
             />
           </div>
-          
+
           <button
             type="submit"
             disabled={loading}
@@ -104,7 +104,7 @@ export function Register() {
             {loading ? 'CREATING...' : 'REGISTER'}
           </button>
         </form>
-        
+
         <div className="mt-6 text-center">
           <button
             onClick={() => setCurrentView('login')}
@@ -115,8 +115,5 @@ export function Register() {
         </div>
       </div>
     </div>
-  )
+  );
 }
-
-
-

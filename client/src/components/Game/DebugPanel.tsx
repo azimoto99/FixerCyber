@@ -1,153 +1,167 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState } from 'react';
 
 interface DebugPanelProps {
-  gameEngine: any
+  gameEngine: any;
 }
 
 export function DebugPanel({ gameEngine }: DebugPanelProps) {
-  const [debugInfo, setDebugInfo] = useState<any>({})
-  const [isVisible, setIsVisible] = useState(false)
+  const [debugInfo, setDebugInfo] = useState<any>({});
+  const [isVisible, setIsVisible] = useState(false);
 
   useEffect(() => {
-    if (!gameEngine) return
+    if (!gameEngine) return;
 
     const updateInterval = setInterval(() => {
-      const movementSystem = gameEngine.getMovementSystem()
+      const movementSystem = gameEngine.getMovementSystem();
       if (movementSystem) {
-        const info = movementSystem.getDebugInfo ? movementSystem.getDebugInfo() : {}
-        const playerPos = movementSystem.getPlayerPosition()
-        const velocity = movementSystem.getPlayerVelocity ? movementSystem.getPlayerVelocity() : { x: 0, y: 0 }
-        const speed = movementSystem.getMovementSpeed ? movementSystem.getMovementSpeed() : 200
-        
+        const info = movementSystem.getDebugInfo
+          ? movementSystem.getDebugInfo()
+          : {};
+        const playerPos = movementSystem.getPlayerPosition();
+        const velocity = movementSystem.getPlayerVelocity
+          ? movementSystem.getPlayerVelocity()
+          : { x: 0, y: 0 };
+        const speed = movementSystem.getMovementSpeed
+          ? movementSystem.getMovementSpeed()
+          : 200;
+
         // Get world stats
-        const worldSystem = gameEngine.getWorldSystem()
-        const worldStats = worldSystem ? worldSystem.getWorldStats() : null
+        const worldSystem = gameEngine.getWorldSystem();
+        const worldStats = worldSystem ? worldSystem.getWorldStats() : null;
 
         setDebugInfo({
           ...info,
           currentPosition: playerPos,
           speed: Math.round(speed * 100) / 100,
-          velocityMagnitude: Math.round(Math.sqrt(velocity.x * velocity.x + velocity.y * velocity.y) * 100) / 100,
-          worldStats
-        })
+          velocityMagnitude:
+            Math.round(
+              Math.sqrt(velocity.x * velocity.x + velocity.y * velocity.y) * 100
+            ) / 100,
+          worldStats,
+        });
       }
-    }, 100) // Update 10 times per second
+    }, 100); // Update 10 times per second
 
-    return () => clearInterval(updateInterval)
-  }, [gameEngine])
+    return () => clearInterval(updateInterval);
+  }, [gameEngine]);
 
   // Toggle debug panel with F3
   useEffect(() => {
     const handleKeyPress = (e: KeyboardEvent) => {
       if (e.key === 'F3') {
-        e.preventDefault()
-        setIsVisible(prev => !prev)
+        e.preventDefault();
+        setIsVisible(prev => !prev);
       }
-    }
+    };
 
-    window.addEventListener('keydown', handleKeyPress)
-    return () => window.removeEventListener('keydown', handleKeyPress)
-  }, [])
+    window.addEventListener('keydown', handleKeyPress);
+    return () => window.removeEventListener('keydown', handleKeyPress);
+  }, []);
 
   if (!isVisible) {
     return (
       <div className="absolute top-4 left-4 text-xs text-cyberpunk-light/50">
         Press F3 for debug info
       </div>
-    )
+    );
   }
 
   return (
     <div className="absolute top-4 left-4 bg-black/80 text-cyberpunk-light p-4 rounded border border-cyberpunk-primary text-xs font-mono">
-      <div className="text-cyberpunk-primary font-bold mb-2">🔧 DEBUG PANEL</div>
-      
+      <div className="text-cyberpunk-primary font-bold mb-2">
+        🔧 DEBUG PANEL
+      </div>
+
       <div className="space-y-1">
         <div>
-          <span className="text-cyberpunk-accent">Position:</span> 
-          {debugInfo.currentPosition ? 
-            ` (${Math.round(debugInfo.currentPosition.x)}, ${Math.round(debugInfo.currentPosition.y)})` : 
-            ' N/A'
-          }
+          <span className="text-cyberpunk-accent">Position:</span>
+          {debugInfo.currentPosition
+            ? ` (${Math.round(debugInfo.currentPosition.x)}, ${Math.round(debugInfo.currentPosition.y)})`
+            : ' N/A'}
         </div>
-        
+
         <div>
-          <span className="text-cyberpunk-accent">Predicted:</span> 
-          {debugInfo.predictedPosition ? 
-            ` (${Math.round(debugInfo.predictedPosition.x)}, ${Math.round(debugInfo.predictedPosition.y)})` : 
-            ' N/A'
-          }
+          <span className="text-cyberpunk-accent">Predicted:</span>
+          {debugInfo.predictedPosition
+            ? ` (${Math.round(debugInfo.predictedPosition.x)}, ${Math.round(debugInfo.predictedPosition.y)})`
+            : ' N/A'}
         </div>
-        
+
         <div>
-          <span className="text-cyberpunk-accent">Server:</span> 
-          {debugInfo.serverPosition ? 
-            ` (${Math.round(debugInfo.serverPosition.x)}, ${Math.round(debugInfo.serverPosition.y)})` : 
-            ' N/A'
-          }
+          <span className="text-cyberpunk-accent">Server:</span>
+          {debugInfo.serverPosition
+            ? ` (${Math.round(debugInfo.serverPosition.x)}, ${Math.round(debugInfo.serverPosition.y)})`
+            : ' N/A'}
         </div>
-        
+
         <div>
-          <span className="text-cyberpunk-accent">Velocity:</span> 
-          {debugInfo.velocity ? 
-            ` (${Math.round(debugInfo.velocity.x * 100) / 100}, ${Math.round(debugInfo.velocity.y * 100) / 100})` : 
-            ' N/A'
-          }
+          <span className="text-cyberpunk-accent">Velocity:</span>
+          {debugInfo.velocity
+            ? ` (${Math.round(debugInfo.velocity.x * 100) / 100}, ${Math.round(debugInfo.velocity.y * 100) / 100})`
+            : ' N/A'}
         </div>
-        
+
         <div>
-          <span className="text-cyberpunk-accent">Speed:</span> {debugInfo.speed || 0} px/s
+          <span className="text-cyberpunk-accent">Speed:</span>{' '}
+          {debugInfo.speed || 0} px/s
         </div>
-        
+
         <div>
-          <span className="text-cyberpunk-accent">Input Buffer:</span> {debugInfo.inputBufferSize || 0}
+          <span className="text-cyberpunk-accent">Input Buffer:</span>{' '}
+          {debugInfo.inputBufferSize || 0}
         </div>
-        
+
         <div>
-          <span className="text-cyberpunk-accent">Last Server Update:</span> 
-          {debugInfo.lastServerUpdate ? 
-            ` ${Date.now() - debugInfo.lastServerUpdate}ms ago` : 
-            ' Never'
-          }
+          <span className="text-cyberpunk-accent">Last Server Update:</span>
+          {debugInfo.lastServerUpdate
+            ? ` ${Date.now() - debugInfo.lastServerUpdate}ms ago`
+            : ' Never'}
         </div>
-        
+
         {debugInfo.worldStats && (
           <>
             <div className="border-t border-cyberpunk-primary/30 my-2"></div>
             <div className="text-cyberpunk-primary font-bold">WORLD</div>
-            
+
             <div>
-              <span className="text-cyberpunk-accent">Chunks:</span> {debugInfo.worldStats.totalChunks}
+              <span className="text-cyberpunk-accent">Chunks:</span>{' '}
+              {debugInfo.worldStats.totalChunks}
             </div>
-            
+
             <div>
-              <span className="text-cyberpunk-accent">Buildings:</span> {debugInfo.worldStats.totalBuildings}
+              <span className="text-cyberpunk-accent">Buildings:</span>{' '}
+              {debugInfo.worldStats.totalBuildings}
             </div>
-            
+
             <div>
-              <span className="text-cyberpunk-accent">NPCs:</span> {debugInfo.worldStats.totalNPCs}
+              <span className="text-cyberpunk-accent">NPCs:</span>{' '}
+              {debugInfo.worldStats.totalNPCs}
             </div>
-            
+
             <div>
-              <span className="text-cyberpunk-accent">Loot:</span> {debugInfo.worldStats.totalLoot}
+              <span className="text-cyberpunk-accent">Loot:</span>{' '}
+              {debugInfo.worldStats.totalLoot}
             </div>
-            
+
             <div className="text-xs mt-1">
               <span className="text-cyberpunk-accent">Districts:</span>
               <div className="ml-2">
-                {Object.entries(debugInfo.worldStats.districtCounts).map(([district, count]) => (
-                  <div key={district} className="text-xs">
-                    {district}: {String(count)}
-                  </div>
-                ))}
+                {Object.entries(debugInfo.worldStats.districtCounts).map(
+                  ([district, count]) => (
+                    <div key={district} className="text-xs">
+                      {district}: {String(count)}
+                    </div>
+                  )
+                )}
               </div>
             </div>
           </>
         )}
       </div>
-      
+
       <div className="mt-3 text-xs text-cyberpunk-light/70">
         WASD: Move • F3: Toggle Debug
       </div>
     </div>
-  )
+  );
 }

@@ -1,14 +1,16 @@
-import { useState } from 'react'
-import { useGameStore } from '../../stores/gameStore'
-import { Inventory } from './Inventory'
-import { ContractPanel } from './ContractPanel'
-import { HackingInterface } from './HackingInterface'
+import { useState } from 'react';
+import { useGameStore } from '../../stores/gameStore';
+import { Inventory } from './Inventory';
+import { ContractPanel } from './ContractPanel';
+import { HackingInterface } from './HackingInterface';
 
 export function GameUI() {
-  const { player, contracts } = useGameStore()
-  const [activePanel, setActivePanel] = useState<'inventory' | 'contracts' | 'hacking' | null>(null)
+  const { player, contracts } = useGameStore();
+  const [activePanel, setActivePanel] = useState<
+    'inventory' | 'contracts' | 'hacking' | null
+  >(null);
 
-  if (!player) return null
+  if (!player) return null;
 
   return (
     <div className="absolute inset-0 pointer-events-none">
@@ -46,19 +48,25 @@ export function GameUI() {
       <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 pointer-events-auto">
         <div className="bg-cyberpunk-gray/90 backdrop-blur-sm border border-cyberpunk-primary rounded-lg p-2 flex space-x-2">
           <button
-            onClick={() => setActivePanel(activePanel === 'inventory' ? null : 'inventory')}
+            onClick={() =>
+              setActivePanel(activePanel === 'inventory' ? null : 'inventory')
+            }
             className="cyber-button text-sm px-3 py-1"
           >
             INVENTORY
           </button>
           <button
-            onClick={() => setActivePanel(activePanel === 'contracts' ? null : 'contracts')}
+            onClick={() =>
+              setActivePanel(activePanel === 'contracts' ? null : 'contracts')
+            }
             className="cyber-button text-sm px-3 py-1"
           >
             CONTRACTS
           </button>
           <button
-            onClick={() => setActivePanel(activePanel === 'hacking' ? null : 'hacking')}
+            onClick={() =>
+              setActivePanel(activePanel === 'hacking' ? null : 'hacking')
+            }
             className="cyber-button text-sm px-3 py-1"
           >
             HACK
@@ -85,8 +93,5 @@ export function GameUI() {
         </div>
       )}
     </div>
-  )
+  );
 }
-
-
-

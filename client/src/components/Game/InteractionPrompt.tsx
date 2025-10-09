@@ -1,32 +1,33 @@
-import { useEffect, useState } from 'react'
-import { GameEngine } from '../../game/engine/GameEngine'
+import { useEffect, useState } from 'react';
+import { GameEngine } from '../../game/engine/GameEngine';
 
 interface InteractionPromptProps {
-  gameEngine: GameEngine | null
+  gameEngine: GameEngine | null;
 }
 
 export function InteractionPrompt({ gameEngine }: InteractionPromptProps) {
-  const [canInteract, setCanInteract] = useState(false)
-  const [buildingType, setBuildingType] = useState<string>('')
+  const [canInteract, setCanInteract] = useState(false);
+  const [buildingType, setBuildingType] = useState<string>('');
 
   useEffect(() => {
-    if (!gameEngine) return
+    if (!gameEngine) return;
 
     const interval = setInterval(() => {
-      const interactionSystem = gameEngine.getBuildingInteractionSystem()
+      const interactionSystem = gameEngine.getBuildingInteractionSystem();
       if (interactionSystem) {
-        const door = interactionSystem.getNearbyDoor()
-        setCanInteract(door !== null)
-        setBuildingType(door?.buildingType || '')
+        const door = interactionSystem.getNearbyDoor();
+        setCanInteract(door !== null);
+        setBuildingType(door?.buildingType || '');
       }
-    }, 100) // Check 10 times per second
+    }, 100); // Check 10 times per second
 
-    return () => clearInterval(interval)
-  }, [gameEngine])
+    return () => clearInterval(interval);
+  }, [gameEngine]);
 
-  if (!canInteract) return null
+  if (!canInteract) return null;
 
-  const displayName = buildingType.charAt(0).toUpperCase() + buildingType.slice(1)
+  const displayName =
+    buildingType.charAt(0).toUpperCase() + buildingType.slice(1);
 
   return (
     <div className="fixed bottom-24 left-1/2 transform -translate-x-1/2 z-50 pointer-events-none">
@@ -44,5 +45,5 @@ export function InteractionPrompt({ gameEngine }: InteractionPromptProps) {
         </div>
       </div>
     </div>
-  )
+  );
 }

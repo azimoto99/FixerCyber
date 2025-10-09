@@ -1,68 +1,77 @@
-import React, { useEffect, useState } from 'react'
-import { LoadingProgress } from '../../game/systems/LoadingSystem'
+import React, { useEffect, useState } from 'react';
+import { LoadingProgress } from '../../game/systems/LoadingSystem';
 
 interface LoadingScreenProps {
-  progress: LoadingProgress
-  onCancel?: () => void
-  allowCancel?: boolean
+  progress: LoadingProgress;
+  onCancel?: () => void;
+  allowCancel?: boolean;
 }
 
-export const LoadingScreen: React.FC<LoadingScreenProps> = ({ 
-  progress, 
-  onCancel, 
-  allowCancel = false 
+export const LoadingScreen: React.FC<LoadingScreenProps> = ({
+  progress,
+  onCancel,
+  allowCancel = false,
 }) => {
-  const [dots, setDots] = useState('')
-  const [scanLines, setScanLines] = useState(0)
+  const [dots, setDots] = useState('');
+  const [scanLines, setScanLines] = useState(0);
 
   // Animate loading dots
   useEffect(() => {
     const interval = setInterval(() => {
-      setDots(prev => prev.length >= 3 ? '' : prev + '.')
-    }, 500)
-    return () => clearInterval(interval)
-  }, [])
+      setDots(prev => (prev.length >= 3 ? '' : prev + '.'));
+    }, 500);
+    return () => clearInterval(interval);
+  }, []);
 
   // Animate scan lines effect
   useEffect(() => {
     const interval = setInterval(() => {
-      setScanLines(prev => (prev + 1) % 100)
-    }, 50)
-    return () => clearInterval(interval)
-  }, [])
+      setScanLines(prev => (prev + 1) % 100);
+    }, 50);
+    return () => clearInterval(interval);
+  }, []);
 
   const formatTime = (ms: number): string => {
-    if (ms < 1000) return '< 1s'
-    const seconds = Math.floor(ms / 1000)
-    if (seconds < 60) return `${seconds}s`
-    const minutes = Math.floor(seconds / 60)
-    const remainingSeconds = seconds % 60
-    return `${minutes}m ${remainingSeconds}s`
-  }
+    if (ms < 1000) return '< 1s';
+    const seconds = Math.floor(ms / 1000);
+    if (seconds < 60) return `${seconds}s`;
+    const minutes = Math.floor(seconds / 60);
+    const remainingSeconds = seconds % 60;
+    return `${minutes}m ${remainingSeconds}s`;
+  };
 
   const getProgressColor = (progress: number): string => {
-    if (progress < 30) return '#ff6b6b'
-    if (progress < 70) return '#feca57'
-    return '#48dbfb'
-  }
+    if (progress < 30) return '#ff6b6b';
+    if (progress < 70) return '#feca57';
+    return '#48dbfb';
+  };
 
   const getStageIcon = (stage: string): string => {
     switch (stage) {
-      case 'generating': return '🏗️'
-      case 'finalizing': return '⚡'
-      case 'complete': return '✅'
-      case 'error': return '❌'
-      case 'cancelled': return '🛑'
-      default: return '🌍'
+      case 'generating':
+        return '🏗️';
+      case 'finalizing':
+        return '⚡';
+      case 'complete':
+        return '✅';
+      case 'error':
+        return '❌';
+      case 'cancelled':
+        return '🛑';
+      default:
+        return '🌍';
     }
-  }
+  };
 
   return (
     <div className="loading-screen">
       {/* Background */}
       <div className="loading-bg">
         <div className="circuit-pattern"></div>
-        <div className="scan-lines" style={{ transform: `translateY(${scanLines}%)` }}></div>
+        <div
+          className="scan-lines"
+          style={{ transform: `translateY(${scanLines}%)` }}
+        ></div>
         <div className="cyber-grid"></div>
       </div>
 
@@ -83,18 +92,19 @@ export const LoadingScreen: React.FC<LoadingScreenProps> = ({
           <div className="progress-status">
             <span className="status-icon">{getStageIcon(progress.stage)}</span>
             <span className="status-text">
-              {progress.message}{dots}
+              {progress.message}
+              {dots}
             </span>
           </div>
 
           {/* Progress Bar */}
           <div className="progress-container">
             <div className="progress-bar">
-              <div 
+              <div
                 className="progress-fill"
-                style={{ 
+                style={{
                   width: `${progress.progress}%`,
-                  backgroundColor: getProgressColor(progress.progress)
+                  backgroundColor: getProgressColor(progress.progress),
                 }}
               ></div>
               <div className="progress-text">
@@ -111,7 +121,7 @@ export const LoadingScreen: React.FC<LoadingScreenProps> = ({
                 {progress.chunksLoaded} / {progress.totalChunks}
               </span>
             </div>
-            
+
             {progress.estimatedTimeRemaining > 0 && (
               <div className="stat-row">
                 <span className="stat-label">Time Remaining:</span>
@@ -134,15 +144,19 @@ export const LoadingScreen: React.FC<LoadingScreenProps> = ({
           <div className="tip-content">
             <div className="tip-item">🎯 Use WASD keys to move around</div>
             <div className="tip-item">🔫 Left click to shoot, R to reload</div>
-            <div className="tip-item">💰 Collect credits and buy better gear</div>
-            <div className="tip-item">🏢 Explore different districts for unique loot</div>
+            <div className="tip-item">
+              💰 Collect credits and buy better gear
+            </div>
+            <div className="tip-item">
+              🏢 Explore different districts for unique loot
+            </div>
           </div>
         </div>
 
         {/* Cancel Button */}
         {allowCancel && onCancel && (
           <div className="loading-actions">
-            <button 
+            <button
               className="cancel-button"
               onClick={onCancel}
               disabled={progress.stage === 'complete'}
@@ -435,7 +449,7 @@ export const LoadingScreen: React.FC<LoadingScreenProps> = ({
         }
       `}</style>
     </div>
-  )
-}
+  );
+};
 
-export default LoadingScreen
+export default LoadingScreen;

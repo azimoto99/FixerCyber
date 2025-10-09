@@ -1,12 +1,12 @@
-import { useState } from 'react'
-import { useGameStore } from '../../stores/gameStore'
-import { apiService } from '../../services/api'
+import { useState } from 'react';
+import { useGameStore } from '../../stores/gameStore';
+import { apiService } from '../../services/api';
 
 export function Login() {
-  const [username, setUsername] = useState('')
-  const [password, setPassword] = useState('')
-  const [loading, setLoading] = useState(false)
-  const { setCurrentView, setAuthenticated, setPlayer } = useGameStore()
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const { setCurrentView, setAuthenticated, setPlayer } = useGameStore();
 
   const handleDemoMode = () => {
     // Create a demo player for testing movement
@@ -17,26 +17,26 @@ export function Login() {
       health: 100,
       credits: 1000,
       isAlive: true,
-    })
-    
-    setAuthenticated(true)
-    setCurrentView('game')
-  }
-  
+    });
+
+    setAuthenticated(true);
+    setCurrentView('game');
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setLoading(true)
-    
+    e.preventDefault();
+    setLoading(true);
+
     try {
-      const result: any = await apiService.login(username, password)
+      const result: any = await apiService.login(username, password);
 
       if (result?.token) {
-        localStorage.setItem('auth_token', result.token)
+        localStorage.setItem('auth_token', result.token);
       }
 
       // Fetch or create player profile
       try {
-        const me: any = await apiService.getPlayer()
+        const me: any = await apiService.getPlayer();
         setPlayer({
           id: me.id,
           username: me.username,
@@ -44,10 +44,10 @@ export function Login() {
           health: me.health ?? 100,
           credits: me.credits ?? 0,
           isAlive: me.isAlive ?? true,
-        })
+        });
       } catch (_) {
         // If no player profile exists yet, create one
-        const created: any = await apiService.createPlayer(username)
+        const created: any = await apiService.createPlayer(username);
         setPlayer({
           id: created.id,
           username: created.username ?? username,
@@ -55,18 +55,18 @@ export function Login() {
           health: created.health ?? 100,
           credits: created.credits ?? 0,
           isAlive: created.isAlive ?? true,
-        })
+        });
       }
 
-      setAuthenticated(true)
-      setCurrentView('game')
+      setAuthenticated(true);
+      setCurrentView('game');
     } catch (error) {
-      console.error('Login failed:', error)
-      alert('Login failed. Please check your credentials and try again.')
+      console.error('Login failed:', error);
+      alert('Login failed. Please check your credentials and try again.');
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   return (
     <div className="w-full max-w-md mx-auto">
@@ -74,7 +74,7 @@ export function Login() {
         <h1 className="text-3xl font-bold text-cyberpunk-primary text-center mb-8">
           FIXER
         </h1>
-        
+
         <form onSubmit={handleSubmit} className="space-y-6">
           <div>
             <label className="block text-sm font-medium text-cyberpunk-light mb-2">
@@ -83,13 +83,13 @@ export function Login() {
             <input
               type="text"
               value={username}
-              onChange={(e) => setUsername(e.target.value)}
+              onChange={e => setUsername(e.target.value)}
               className="cyber-input w-full"
               placeholder="Enter your handle"
               required
             />
           </div>
-          
+
           <div>
             <label className="block text-sm font-medium text-cyberpunk-light mb-2">
               Password
@@ -97,13 +97,13 @@ export function Login() {
             <input
               type="password"
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              onChange={e => setPassword(e.target.value)}
               className="cyber-input w-full"
               placeholder="Enter your passcode"
               required
             />
           </div>
-          
+
           <button
             type="submit"
             disabled={loading}
@@ -112,7 +112,7 @@ export function Login() {
             {loading ? 'CONNECTING...' : 'LOGIN'}
           </button>
         </form>
-        
+
         <div className="mt-6 text-center space-y-3">
           <button
             onClick={() => setCurrentView('register')}
@@ -120,7 +120,7 @@ export function Login() {
           >
             Need a new identity?
           </button>
-          
+
           <button
             onClick={handleDemoMode}
             className="text-neon-cyan hover:text-neon-green transition-colors text-sm block w-full"
@@ -130,8 +130,5 @@ export function Login() {
         </div>
       </div>
     </div>
-  )
+  );
 }
-
-
-

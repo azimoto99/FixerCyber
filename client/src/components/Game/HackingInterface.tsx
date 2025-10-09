@@ -1,55 +1,54 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect } from 'react';
 
 interface HackingInterfaceProps {
-  onClose: () => void
+  onClose: () => void;
 }
 
 export function HackingInterface({ onClose }: HackingInterfaceProps) {
-  const [isHacking, setIsHacking] = useState(false)
-  const [progress, setProgress] = useState(0)
-  const [circuit, setCircuit] = useState<boolean[]>([])
+  const [isHacking, setIsHacking] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [circuit, setCircuit] = useState<boolean[]>([]);
 
   useEffect(() => {
     // Initialize circuit with random connections
-    const newCircuit = Array.from({ length: 16 }, () => Math.random() > 0.5)
-    setCircuit(newCircuit)
-  }, [])
+    const newCircuit = Array.from({ length: 16 }, () => Math.random() > 0.5);
+    setCircuit(newCircuit);
+  }, []);
 
   const startHack = () => {
-    setIsHacking(true)
-    setProgress(0)
-    
+    setIsHacking(true);
+    setProgress(0);
+
     const interval = setInterval(() => {
       setProgress(prev => {
         if (prev >= 100) {
-          setIsHacking(false)
-          clearInterval(interval)
-          return 100
+          setIsHacking(false);
+          clearInterval(interval);
+          return 100;
         }
-        return prev + 2
-      })
-    }, 100)
-  }
+        return prev + 2;
+      });
+    }, 100);
+  };
 
   const toggleConnection = (index: number) => {
-    if (isHacking) return
-    
+    if (isHacking) return;
+
     setCircuit(prev => {
-      const newCircuit = [...prev]
-      newCircuit[index] = !newCircuit[index]
-      return newCircuit
-    })
-  }
+      const newCircuit = [...prev];
+      newCircuit[index] = !newCircuit[index];
+      return newCircuit;
+    });
+  };
 
   return (
     <div className="w-full h-full bg-cyberpunk-dark/95 backdrop-blur-sm flex items-center justify-center">
       <div className="bg-cyberpunk-gray border border-cyberpunk-primary rounded-lg p-6 w-full max-w-2xl">
         <div className="flex justify-between items-center mb-6">
-          <h2 className="text-2xl font-bold text-cyberpunk-primary">HACKING INTERFACE</h2>
-          <button
-            onClick={onClose}
-            className="cyber-button text-sm px-4 py-2"
-          >
+          <h2 className="text-2xl font-bold text-cyberpunk-primary">
+            HACKING INTERFACE
+          </h2>
+          <button onClick={onClose} className="cyber-button text-sm px-4 py-2">
             CLOSE
           </button>
         </div>
@@ -66,7 +65,9 @@ export function HackingInterface({ onClose }: HackingInterfaceProps) {
                   ? 'bg-cyberpunk-primary border-cyberpunk-primary text-cyberpunk-dark'
                   : 'bg-cyberpunk-dark border-cyberpunk-primary text-cyberpunk-primary'
               } ${
-                isHacking ? 'opacity-50 cursor-not-allowed' : 'hover:bg-cyberpunk-primary/20'
+                isHacking
+                  ? 'opacity-50 cursor-not-allowed'
+                  : 'hover:bg-cyberpunk-primary/20'
               }`}
             >
               {isConnected ? '●' : '○'}
@@ -84,7 +85,9 @@ export function HackingInterface({ onClose }: HackingInterfaceProps) {
                 style={{ width: `${progress}%` }}
               />
             </div>
-            <div className="text-cyberpunk-accent text-sm mt-1">{progress}%</div>
+            <div className="text-cyberpunk-accent text-sm mt-1">
+              {progress}%
+            </div>
           </div>
         )}
 
@@ -97,12 +100,12 @@ export function HackingInterface({ onClose }: HackingInterfaceProps) {
           >
             {isHacking ? 'HACKING...' : 'START HACK'}
           </button>
-          
+
           <button
             onClick={() => {
-              setProgress(0)
-              setIsHacking(false)
-              setCircuit(Array.from({ length: 16 }, () => Math.random() > 0.5))
+              setProgress(0);
+              setIsHacking(false);
+              setCircuit(Array.from({ length: 16 }, () => Math.random() > 0.5));
             }}
             disabled={isHacking}
             className="bg-cyberpunk-gray border border-cyberpunk-light text-cyberpunk-light hover:bg-cyberpunk-light hover:text-cyberpunk-dark disabled:opacity-50 px-4 py-2 rounded transition-colors"
@@ -120,8 +123,5 @@ export function HackingInterface({ onClose }: HackingInterfaceProps) {
         </div>
       </div>
     </div>
-  )
+  );
 }
-
-
-

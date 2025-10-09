@@ -1,17 +1,17 @@
 // Contract system types
 export interface Contract {
-  id: string
-  type: ContractType
-  fixerId: string
-  playerId?: string
-  target: ContractTarget
-  reward: ContractReward
-  timeLimit: number
-  status: ContractStatus
-  description: string
-  createdAt: Date
-  completedAt?: Date
-  cancelledAt?: Date
+  id: string;
+  type: ContractType;
+  fixerId: string;
+  playerId?: string;
+  target: ContractTarget;
+  reward: ContractReward;
+  timeLimit: number;
+  status: ContractStatus;
+  description: string;
+  createdAt: Date;
+  completedAt?: Date;
+  cancelledAt?: Date;
 }
 
 export enum ContractType {
@@ -21,20 +21,20 @@ export enum ContractType {
   SABOTAGE = 'sabotage',
   ESCORT = 'escort',
   RECOVERY = 'recovery',
-  SURVEILLANCE = 'surveillance'
+  SURVEILLANCE = 'surveillance',
 }
 
 export interface ContractTarget {
-  id: string
-  type: string
-  position: Vector2
-  data: any
+  id: string;
+  type: string;
+  position: Vector2;
+  data: any;
 }
 
 export interface ContractReward {
-  credits: number
-  items?: InventoryItem[]
-  reputation?: number
+  credits: number;
+  items?: InventoryItem[];
+  reputation?: number;
 }
 
 export enum ContractStatus {
@@ -43,20 +43,17 @@ export enum ContractStatus {
   IN_PROGRESS = 'in_progress',
   COMPLETED = 'completed',
   CANCELLED = 'cancelled',
-  EXPIRED = 'expired'
+  EXPIRED = 'expired',
 }
 
 export interface AIFixer {
-  id: string
-  name: string
-  faction: string
-  reputation: number
-  isActive: boolean
-  contracts: Contract[]
+  id: string;
+  name: string;
+  faction: string;
+  reputation: number;
+  isActive: boolean;
+  contracts: Contract[];
 }
 
 // Import Vector2 from game types
-import { Vector2, InventoryItem } from './game'
-
-
-
+import { Vector2, InventoryItem } from './game';

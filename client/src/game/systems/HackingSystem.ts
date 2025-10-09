@@ -1,57 +1,60 @@
 // Hacking system for cyberpunk hacking mechanics
 // Simple event emitter implementation
 class EventEmitter {
-  private events: { [key: string]: Function[] } = {}
+  private events: { [key: string]: Function[] } = {};
 
   on(event: string, listener: Function) {
     if (!this.events[event]) {
-      this.events[event] = []
+      this.events[event] = [];
     }
-    this.events[event].push(listener)
+    this.events[event].push(listener);
   }
 
   emit(event: string, ...args: any[]) {
     if (this.events[event]) {
-      this.events[event].forEach(listener => listener(...args))
+      this.events[event].forEach(listener => listener(...args));
     }
   }
 }
 
 export class HackingSystem extends EventEmitter {
-  private activeHacks: Map<string, any> = new Map()
-  private neuralPrograms: Map<string, any> = new Map()
-  private hackTargets: Map<string, any> = new Map()
-  private playerHeat: number = 0
-  private maxHeat: number = 100
-  private heatDecayRate: number = 1 // per second
+  private activeHacks: Map<string, any> = new Map();
+  private neuralPrograms: Map<string, any> = new Map();
+  private hackTargets: Map<string, any> = new Map();
+  private playerHeat: number = 0;
+  private maxHeat: number = 100;
+  private heatDecayRate: number = 1; // per second
 
   constructor() {
-    super()
-    this.initializeNeuralPrograms()
+    super();
+    this.initializeNeuralPrograms();
   }
 
   update(deltaTime: number) {
-    this.updateActiveHacks(deltaTime)
-    this.updatePlayerHeat(deltaTime)
-    this.updateHackTargets(deltaTime)
+    this.updateActiveHacks(deltaTime);
+    this.updatePlayerHeat(deltaTime);
+    this.updateHackTargets(deltaTime);
   }
 
   private updateActiveHacks(deltaTime: number) {
     this.activeHacks.forEach((hack, id) => {
-      hack.progress += (hack.speed * deltaTime) / 1000
-      hack.heat += (hack.heatGeneration * deltaTime) / 1000
-      
+      hack.progress += (hack.speed * deltaTime) / 1000;
+      hack.heat += (hack.heatGeneration * deltaTime) / 1000;
+
       if (hack.progress >= 100) {
-        this.completeHack(id)
+        this.completeHack(id);
       } else if (hack.heat >= hack.maxHeat) {
-        this.failHack(id, 'overheat')
+        this.failHack(id, 'overheat');
       }
-    })
+    });
   }
 
   private updatePlayerHeat(deltaTime: number) {
     if (this.playerHeat > 0) {
-      this.playerHeat = Math.max(0, this.playerHeat - (this.heatDecayRate * deltaTime) / 1000)
+      this.playerHeat = Math.max(
+        0,
+        this.playerHeat - (this.heatDecayRate * deltaTime) / 1000
+      );
     }
   }
 
@@ -59,38 +62,44 @@ export class HackingSystem extends EventEmitter {
     // Update hackable targets in the world
     this.hackTargets.forEach((target, _id) => {
       if (target.securityLevel > 0) {
-        target.securityLevel = Math.max(0, target.securityLevel - (target.decayRate * deltaTime) / 1000)
+        target.securityLevel = Math.max(
+          0,
+          target.securityLevel - (target.decayRate * deltaTime) / 1000
+        );
       }
-    })
+    });
   }
 
   // Hacking actions
   handleHacking(data: any) {
-    const { target, action, program } = data
-    
+    const { target, action, program } = data;
+
     switch (action) {
       case 'start':
-        this.startHack(target, program)
-        break
+        this.startHack(target, program);
+        break;
       case 'stop':
-        this.stopHack(target)
-        break
+        this.stopHack(target);
+        break;
       case 'use_program':
-        this.useNeuralProgram(program)
-        break
+        this.useNeuralProgram(program);
+        break;
       case 'install_program':
-        this.installNeuralProgram(program)
-        break
+        this.installNeuralProgram(program);
+        break;
     }
   }
 
   startHack(targetId: string, programId?: string) {
-    const target = this.hackTargets.get(targetId)
-    if (!target) return false
+    const target = this.hackTargets.get(targetId);
+    if (!target) return false;
 
     if (this.activeHacks.has(targetId)) {
-      this.emit('hackError', { targetId, error: 'Already hacking this target' })
-      return false
+      this.emit('hackError', {
+        targetId,
+        error: 'Already hacking this target',
+      });
+      return false;
     }
 
     const hack = {
@@ -102,91 +111,91 @@ export class HackingSystem extends EventEmitter {
       heat: 0,
       heatGeneration: this.calculateHeatGeneration(target, programId),
       maxHeat: this.calculateMaxHeat(target),
-      startTime: Date.now()
-    }
+      startTime: Date.now(),
+    };
 
-    this.activeHacks.set(targetId, hack)
-    this.emit('hackStarted', hack)
-    return true
+    this.activeHacks.set(targetId, hack);
+    this.emit('hackStarted', hack);
+    return true;
   }
 
   stopHack(targetId: string) {
-    const hack = this.activeHacks.get(targetId)
-    if (!hack) return false
+    const hack = this.activeHacks.get(targetId);
+    if (!hack) return false;
 
-    this.activeHacks.delete(targetId)
-    this.emit('hackStopped', { targetId, progress: hack.progress })
-    return true
+    this.activeHacks.delete(targetId);
+    this.emit('hackStopped', { targetId, progress: hack.progress });
+    return true;
   }
 
   private completeHack(hackId: string) {
-    const hack = this.activeHacks.get(hackId)
-    if (!hack) return
+    const hack = this.activeHacks.get(hackId);
+    if (!hack) return;
 
-    this.activeHacks.delete(hackId)
-    this.playerHeat += hack.heat
+    this.activeHacks.delete(hackId);
+    this.playerHeat += hack.heat;
 
     // Apply hack effects
-    this.applyHackEffects(hack)
+    this.applyHackEffects(hack);
 
-    this.emit('hackCompleted', hack)
+    this.emit('hackCompleted', hack);
   }
 
   private failHack(hackId: string, reason: string) {
-    const hack = this.activeHacks.get(hackId)
-    if (!hack) return
+    const hack = this.activeHacks.get(hackId);
+    if (!hack) return;
 
-    this.activeHacks.delete(hackId)
-    this.playerHeat += hack.heat * 0.5 // Partial heat on failure
+    this.activeHacks.delete(hackId);
+    this.playerHeat += hack.heat * 0.5; // Partial heat on failure
 
-    this.emit('hackFailed', { hack, reason })
+    this.emit('hackFailed', { hack, reason });
   }
 
   private applyHackEffects(hack: any) {
-    const { target, program } = hack
+    const { target, program } = hack;
 
     switch (target.type) {
       case 'terminal':
-        this.applyTerminalHack(target, program)
-        break
+        this.applyTerminalHack(target, program);
+        break;
       case 'security_camera':
-        this.applyCameraHack(target, program)
-        break
+        this.applyCameraHack(target, program);
+        break;
       case 'door_lock':
-        this.applyDoorHack(target, program)
-        break
+        this.applyDoorHack(target, program);
+        break;
       case 'augmentation':
-        this.applyAugmentationHack(target, program)
-        break
+        this.applyAugmentationHack(target, program);
+        break;
       case 'network':
-        this.applyNetworkHack(target, program)
-        break
+        this.applyNetworkHack(target, program);
+        break;
     }
   }
 
   private applyTerminalHack(target: any, _program: any) {
     // Extract data, disable security, etc.
-    this.emit('dataExtracted', { target, data: this.generateHackData(target) })
+    this.emit('dataExtracted', { target, data: this.generateHackData(target) });
   }
 
   private applyCameraHack(target: any, _program: any) {
     // Disable camera, loop footage, etc.
-    this.emit('cameraHacked', { target, effect: 'disabled' })
+    this.emit('cameraHacked', { target, effect: 'disabled' });
   }
 
   private applyDoorHack(target: any, _program: any) {
     // Unlock door, disable security, etc.
-    this.emit('doorHacked', { target, effect: 'unlocked' })
+    this.emit('doorHacked', { target, effect: 'unlocked' });
   }
 
   private applyAugmentationHack(target: any, _program: any) {
     // Hack player augmentation, cause malfunction, etc.
-    this.emit('augmentationHacked', { target, effect: 'malfunction' })
+    this.emit('augmentationHacked', { target, effect: 'malfunction' });
   }
 
   private applyNetworkHack(target: any, _program: any) {
     // Access network, steal data, etc.
-    this.emit('networkHacked', { target, access: 'gained' })
+    this.emit('networkHacked', { target, access: 'gained' });
   }
 
   // Neural program management
@@ -199,7 +208,7 @@ export class HackingSystem extends EventEmitter {
         type: 'vision',
         heatCost: 15,
         duration: 30,
-        rarity: 'rare'
+        rarity: 'rare',
       },
       {
         id: 'aimbot',
@@ -208,7 +217,7 @@ export class HackingSystem extends EventEmitter {
         type: 'combat',
         heatCost: 20,
         duration: 20,
-        rarity: 'epic'
+        rarity: 'epic',
       },
       {
         id: 'bullettime',
@@ -217,7 +226,7 @@ export class HackingSystem extends EventEmitter {
         type: 'temporal',
         heatCost: 25,
         duration: 15,
-        rarity: 'legendary'
+        rarity: 'legendary',
       },
       {
         id: 'stealth',
@@ -226,7 +235,7 @@ export class HackingSystem extends EventEmitter {
         type: 'stealth',
         heatCost: 10,
         duration: 45,
-        rarity: 'uncommon'
+        rarity: 'uncommon',
       },
       {
         id: 'datamine',
@@ -235,7 +244,7 @@ export class HackingSystem extends EventEmitter {
         type: 'hacking',
         heatCost: 12,
         duration: 60,
-        rarity: 'common'
+        rarity: 'common',
       },
       {
         id: 'firewall',
@@ -244,81 +253,84 @@ export class HackingSystem extends EventEmitter {
         type: 'defense',
         heatCost: 8,
         duration: 90,
-        rarity: 'common'
-      }
-    ]
+        rarity: 'common',
+      },
+    ];
 
     programs.forEach(program => {
-      this.neuralPrograms.set(program.id, program)
-    })
+      this.neuralPrograms.set(program.id, program);
+    });
   }
 
   useNeuralProgram(programId: string): boolean {
-    const program = this.neuralPrograms.get(programId)
-    if (!program) return false
+    const program = this.neuralPrograms.get(programId);
+    if (!program) return false;
 
     if (this.playerHeat + program.heatCost > this.maxHeat) {
-      this.emit('programError', { programId, error: 'Insufficient heat capacity' })
-      return false
+      this.emit('programError', {
+        programId,
+        error: 'Insufficient heat capacity',
+      });
+      return false;
     }
 
-    this.playerHeat += program.heatCost
-    this.emit('programActivated', { program, duration: program.duration })
-    return true
+    this.playerHeat += program.heatCost;
+    this.emit('programActivated', { program, duration: program.duration });
+    return true;
   }
 
   installNeuralProgram(programId: string): boolean {
     // This would integrate with inventory system
-    this.emit('programInstalled', { programId })
-    return true
+    this.emit('programInstalled', { programId });
+    return true;
   }
 
   // Hack target management
   addHackTarget(target: any) {
-    this.hackTargets.set(target.id, target)
+    this.hackTargets.set(target.id, target);
   }
 
   removeHackTarget(targetId: string) {
-    this.hackTargets.delete(targetId)
+    this.hackTargets.delete(targetId);
   }
 
   getHackTarget(targetId: string) {
-    return this.hackTargets.get(targetId)
+    return this.hackTargets.get(targetId);
   }
 
   // Utility methods
   private calculateHackSpeed(target: any, programId?: string): number {
-    let baseSpeed = 10 // Base hacking speed
-    
+    let baseSpeed = 10; // Base hacking speed
+
     // Reduce speed based on security level
-    baseSpeed *= (1 - target.securityLevel * 0.1)
-    
+    baseSpeed *= 1 - target.securityLevel * 0.1;
+
     // Apply program bonuses
     if (programId) {
-      const program = this.neuralPrograms.get(programId)
+      const program = this.neuralPrograms.get(programId);
       if (program && program.type === 'hacking') {
-        baseSpeed *= 1.5
+        baseSpeed *= 1.5;
       }
     }
-    
-    return Math.max(1, baseSpeed)
+
+    return Math.max(1, baseSpeed);
   }
 
   private calculateHeatGeneration(target: any, programId?: string): number {
-    let baseHeat = target.securityLevel * 2
-    
+    let baseHeat = target.securityLevel * 2;
+
     if (programId) {
-      const program = this.neuralPrograms.get(programId)
+      const program = this.neuralPrograms.get(programId);
       if (program) {
-        baseHeat += program.heatCost / 10
+        baseHeat += program.heatCost / 10;
       }
     }
-    
-    return baseHeat
+
+    return baseHeat;
   }
 
   private calculateMaxHeat(target: any): number {
-    return 50 + (target.securityLevel * 10)
+    return 50 + target.securityLevel * 10;
   }
 
   private generateHackData(target: any): any {
@@ -326,43 +338,41 @@ export class HackingSystem extends EventEmitter {
       type: 'corporate_data',
       value: Math.floor(Math.random() * 1000) + 100,
       securityLevel: target.securityLevel,
-      timestamp: Date.now()
-    }
+      timestamp: Date.now(),
+    };
   }
 
   // Getters
   getActiveHacks(): any[] {
-    return Array.from(this.activeHacks.values())
+    return Array.from(this.activeHacks.values());
   }
 
   getNeuralPrograms(): any[] {
-    return Array.from(this.neuralPrograms.values())
+    return Array.from(this.neuralPrograms.values());
   }
 
   getPlayerHeat(): number {
-    return this.playerHeat
+    return this.playerHeat;
   }
 
   getMaxHeat(): number {
-    return this.maxHeat
+    return this.maxHeat;
   }
 
   getHeatPercentage(): number {
-    return (this.playerHeat / this.maxHeat) * 100
+    return (this.playerHeat / this.maxHeat) * 100;
   }
 
   isOverheated(): boolean {
-    return this.playerHeat >= this.maxHeat
+    return this.playerHeat >= this.maxHeat;
   }
 
   // Cleanup
   clearActiveHacks() {
-    this.activeHacks.clear()
+    this.activeHacks.clear();
   }
 
   resetHeat() {
-    this.playerHeat = 0
+    this.playerHeat = 0;
   }
 }
-
-

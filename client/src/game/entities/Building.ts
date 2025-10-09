@@ -1,17 +1,17 @@
 // Building entity
-import { Vector2 } from '../../types/game'
+import { Vector2 } from '../../types/game';
 
 export class Building {
-  public id: string
-  public type: string
-  public position: Vector2
-  public size: Vector2
-  public hackable: boolean
-  public securityLevel: number
-  public lootTables: any[] = []
-  public isLocked: boolean = false
-  public owner: string | null = null
-  public faction: string | null = null
+  public id: string;
+  public type: string;
+  public position: Vector2;
+  public size: Vector2;
+  public hackable: boolean;
+  public securityLevel: number;
+  public lootTables: any[] = [];
+  public isLocked: boolean = false;
+  public owner: string | null = null;
+  public faction: string | null = null;
 
   constructor(
     id: string,
@@ -21,71 +21,71 @@ export class Building {
     hackable: boolean = false,
     securityLevel: number = 1
   ) {
-    this.id = id
-    this.type = type
-    this.position = position
-    this.size = size
-    this.hackable = hackable
-    this.securityLevel = securityLevel
+    this.id = id;
+    this.type = type;
+    this.position = position;
+    this.size = size;
+    this.hackable = hackable;
+    this.securityLevel = securityLevel;
   }
 
   // Building interactions
   canEnter(_player: any): boolean {
     if (this.isLocked && !this.hackable) {
-      return false
+      return false;
     }
-    return true
+    return true;
   }
 
   enter(player: any): boolean {
     if (!this.canEnter(player)) {
-      return false
+      return false;
     }
     // Handle building entry logic
-    return true
+    return true;
   }
 
   exit(_player: any): boolean {
     // Handle building exit logic
-    return true
+    return true;
   }
 
   // Hacking
   canHack(): boolean {
-    return this.hackable && this.securityLevel > 0
+    return this.hackable && this.securityLevel > 0;
   }
 
   hack(securityLevel: number): boolean {
     if (!this.canHack()) {
-      return false
+      return false;
     }
 
     if (securityLevel >= this.securityLevel) {
-      this.securityLevel = 0
-      this.isLocked = false
-      return true
+      this.securityLevel = 0;
+      this.isLocked = false;
+      return true;
     }
-    return false
+    return false;
   }
 
   // Loot system
   generateLoot(): any[] {
-    const loot: any[] = []
-    
+    const loot: any[] = [];
+
     this.lootTables.forEach(table => {
       if (Math.random() < table.dropChance) {
         table.items.forEach((item: any) => {
           if (Math.random() < item.weight) {
             loot.push({
               ...item,
-              id: this.generateId()
-            })
+              id: this.generateId(),
+            });
           }
-        })
+        });
       }
-    })
-    
-    return loot
+    });
+
+    return loot;
   }
 
   // Building types
@@ -100,8 +100,8 @@ export class Building {
       'factory',
       'club',
       'market',
-      'outpost'
-    ]
+      'outpost',
+    ];
   }
 
   static getBuildingTypeInfo(type: string): any {
@@ -110,78 +110,80 @@ export class Building {
         hackable: true,
         securityLevel: 3,
         lootChance: 0.3,
-        description: 'Corporate office building'
+        description: 'Corporate office building',
       },
       apartment: {
         hackable: false,
         securityLevel: 1,
         lootChance: 0.1,
-        description: 'Residential apartment'
+        description: 'Residential apartment',
       },
       warehouse: {
         hackable: true,
         securityLevel: 2,
         lootChance: 0.5,
-        description: 'Industrial warehouse'
+        description: 'Industrial warehouse',
       },
       shop: {
         hackable: true,
         securityLevel: 2,
         lootChance: 0.4,
-        description: 'Commercial shop'
+        description: 'Commercial shop',
       },
       hideout: {
         hackable: true,
         securityLevel: 1,
         lootChance: 0.6,
-        description: 'Underground hideout'
+        description: 'Underground hideout',
       },
       tower: {
         hackable: true,
         securityLevel: 5,
         lootChance: 0.8,
-        description: 'Corporate tower'
+        description: 'Corporate tower',
       },
       factory: {
         hackable: true,
         securityLevel: 3,
         lootChance: 0.4,
-        description: 'Industrial factory'
+        description: 'Industrial factory',
       },
       club: {
         hackable: false,
         securityLevel: 1,
         lootChance: 0.2,
-        description: 'Nightclub'
+        description: 'Nightclub',
       },
       market: {
         hackable: false,
         securityLevel: 0,
         lootChance: 0.1,
-        description: 'Public market'
+        description: 'Public market',
       },
       outpost: {
         hackable: true,
         securityLevel: 2,
         lootChance: 0.3,
-        description: 'Wasteland outpost'
-      }
-    }
+        description: 'Wasteland outpost',
+      },
+    };
 
-    return types[type as keyof typeof types] || {
-      hackable: false,
-      securityLevel: 1,
-      lootChance: 0.1,
-      description: 'Unknown building'
-    }
+    return (
+      types[type as keyof typeof types] || {
+        hackable: false,
+        securityLevel: 1,
+        lootChance: 0.1,
+        description: 'Unknown building',
+      }
+    );
   }
 
   // Utility methods
   getCenter(): Vector2 {
     return {
       x: this.position.x + this.size.x / 2,
-      y: this.position.y + this.size.y / 2
-    }
+      y: this.position.y + this.size.y / 2,
+    };
   }
 
   contains(point: Vector2): boolean {
@@ -190,18 +192,18 @@ export class Building {
       point.x <= this.position.x + this.size.x &&
       point.y >= this.position.y &&
       point.y <= this.position.y + this.size.y
-    )
+    );
   }
 
   getDistanceTo(point: Vector2): number {
-    const center = this.getCenter()
-    const dx = center.x - point.x
-    const dy = center.y - point.y
-    return Math.sqrt(dx * dx + dy * dy)
+    const center = this.getCenter();
+    const dx = center.x - point.x;
+    const dy = center.y - point.y;
+    return Math.sqrt(dx * dx + dy * dy);
   }
 
   private generateId(): string {
-    return Math.random().toString(36).substr(2, 9)
+    return Math.random().toString(36).substr(2, 9);
   }
 
   // Serialization
@@ -216,8 +218,8 @@ export class Building {
       lootTables: this.lootTables,
       isLocked: this.isLocked,
       owner: this.owner,
-      faction: this.faction
-    }
+      faction: this.faction,
+    };
   }
 
   static fromJSON(data: any): Building {
@@ -228,15 +230,13 @@ export class Building {
       data.size,
       data.hackable,
       data.securityLevel
-    )
-    
-    building.lootTables = data.lootTables || []
-    building.isLocked = data.isLocked || false
-    building.owner = data.owner || null
-    building.faction = data.faction || null
-    
-    return building
+    );
+
+    building.lootTables = data.lootTables || [];
+    building.isLocked = data.isLocked || false;
+    building.owner = data.owner || null;
+    building.faction = data.faction || null;
+
+    return building;
   }
 }
-
-

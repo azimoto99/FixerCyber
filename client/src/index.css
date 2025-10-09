@@ -6,7 +6,7 @@
   * {
     @apply border-gray-300;
   }
-  
+
   body {
     @apply bg-cyberpunk-dark text-cyberpunk-light;
     font-family: 'Orbitron', monospace;
@@ -29,16 +29,16 @@
 
   .neon-glow {
     @apply shadow-lg;
-    box-shadow: 0 0 10px currentColor, 0 0 20px currentColor, 0 0 30px currentColor;
+    box-shadow:
+      0 0 10px currentColor,
+      0 0 20px currentColor,
+      0 0 30px currentColor;
   }
 
   .cyber-grid {
-    background-image: 
+    background-image:
       linear-gradient(rgba(0, 255, 136, 0.1) 1px, transparent 1px),
       linear-gradient(90deg, rgba(0, 255, 136, 0.1) 1px, transparent 1px);
     background-size: 20px 20px;
   }
 }
-
-
-

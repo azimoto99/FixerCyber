@@ -1,21 +1,20 @@
-import { useGameStore } from '../../stores/gameStore'
+import { useGameStore } from '../../stores/gameStore';
 
 interface ContractPanelProps {
-  onClose: () => void
+  onClose: () => void;
 }
 
 export function ContractPanel({ onClose }: ContractPanelProps) {
-  const { contracts } = useGameStore()
+  const { contracts } = useGameStore();
 
   return (
     <div className="w-full h-full bg-cyberpunk-dark/95 backdrop-blur-sm flex items-center justify-center">
       <div className="bg-cyberpunk-gray border border-cyberpunk-primary rounded-lg p-6 w-full max-w-4xl h-5/6">
         <div className="flex justify-between items-center mb-6">
-          <h2 className="text-2xl font-bold text-cyberpunk-primary">CONTRACTS</h2>
-          <button
-            onClick={onClose}
-            className="cyber-button text-sm px-4 py-2"
-          >
+          <h2 className="text-2xl font-bold text-cyberpunk-primary">
+            CONTRACTS
+          </h2>
+          <button onClick={onClose} className="cyber-button text-sm px-4 py-2">
             CLOSE
           </button>
         </div>
@@ -26,7 +25,7 @@ export function ContractPanel({ onClose }: ContractPanelProps) {
               No active contracts
             </div>
           ) : (
-            contracts.map((contract) => (
+            contracts.map(contract => (
               <div
                 key={contract.id}
                 className="bg-cyberpunk-dark border border-cyberpunk-primary rounded-lg p-4"
@@ -49,11 +48,11 @@ export function ContractPanel({ onClose }: ContractPanelProps) {
                     </div>
                   </div>
                 </div>
-                
+
                 <div className="text-cyberpunk-light mb-4">
                   {contract.description}
                 </div>
-                
+
                 <div className="flex space-x-2">
                   <button className="cyber-button text-sm px-4 py-2">
                     ACCEPT
@@ -68,8 +67,5 @@ export function ContractPanel({ onClose }: ContractPanelProps) {
         </div>
       </div>
     </div>
-  )
+  );
 }
-
-
-

@@ -1,34 +1,109 @@
-# Node
+# Dependencies
 node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
 
 # Builds
 /dist/
 /build/
 /.cache/
 *.tsbuildinfo
+client/dist/
+server/dist/
 
-# Env
+# Environment Variables
 .env
 .env.*.local
 .env.local
+.env.production
+.env.development
 
 # Logs
 logs/
 *.log
 *.log.*
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
 
 # Coverage
 coverage/
+*.lcov
+.nyc_output
+
+# Testing
+.vitest/
+junit.xml
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
 
 # OS / Editor
 .DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
 Thumbs.db
 .idea/
 .vscode/
-
-# Misc
 *.swp
 *.swo
+*~
+
+# Temporary files
+*.tmp
+*.temp
+.cache/
+
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# Optional npm cache directory
+.npm
+
+# Optional eslint cache
+.eslintcache
+
+# Optional stylelint cache
+.stylelintcache
+
+# Microbundle cache
+.rpt2_cache/
+.rts2_cache_cjs/
+.rts2_cache_es/
+.rts2_cache_umd/
+
+# Optional REPL history
+.node_repl_history
+
+# Output of 'npm pack'
+*.tgz
+
+# Yarn Integrity file
+.yarn-integrity
+
+# parcel-bundler cache (https://parceljs.org/)
+.parcel-cache
+
+# Storybook build outputs
+.out
+.storybook-out
 
 # Render/Deployment
 render-build/
+
+# Game-specific
+game-saves/
+player-data/
+world-chunks/
