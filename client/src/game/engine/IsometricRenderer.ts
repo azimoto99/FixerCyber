@@ -1,4 +1,6 @@
 // Isometric renderer for Diablo-style gameplay
+import { gameSettings } from '../systems/GameSettings'
+
 export interface IsometricTile {
   x: number
   y: number
@@ -37,6 +39,8 @@ export class IsometricRenderer {
   private canvas: HTMLCanvasElement
   private ctx: CanvasRenderingContext2D
   private camera: { x: number; y: number; zoom: number } = { x: 0, y: 0, zoom: 2.7 }
+  private baseZoom: number = 2.7
+  private targetViewDistance: number = 800 // Target viewing distance in world pixels for fairness
   private tileSize = 64 // Base tile size in pixels
   private renderQueue: { depth: number; render: () => void }[] = []
   private lightSources: LightSource[] = []
@@ -66,13 +70,54 @@ export class IsometricRenderer {
     this.fogCanvas.height = canvas.height
     this.fogCtx = this.fogCanvas.getContext('2d')!
     
+    // Calculate fair zoom based on screen size and settings
+    this.baseZoom = this.calculateFairZoom()
+    this.camera.zoom = gameSettings.getEffectiveZoom(this.baseZoom, canvas.width, canvas.height)
+    
     this.setupRenderer()
+    
+    console.log(`🎮 Renderer initialized for ${canvas.width}x${canvas.height} with fair zoom: ${this.baseZoom.toFixed(2)}`)
   }
 
   private setupRenderer() {
     this.ctx.imageSmoothingEnabled = false
     this.ctx.lineCap = 'round'
     this.ctx.lineJoin = 'round'
+  }
+
+  // Calculate fair zoom level based on screen resolution
+  // Ensures all players see roughly the same game area regardless of screen size
+  private calculateFairZoom(): number {
+    // Reference resolution (1920x1080) with reference zoom of 2.7
+    const referenceWidth = 1920
+    const referenceHeight = 1080
+    const referenceZoom = 2.7
+    
+    // Calculate the diagonal viewing distance at reference resolution
+    const referenceDiagonal = Math.sqrt(referenceWidth * referenceWidth + referenceHeight * referenceHeight)
+    const currentDiagonal = Math.sqrt(this.canvas.width * this.canvas.width + this.canvas.height * this.canvas.height)
+    
+    // Calculate zoom to maintain consistent viewing area
+    // Smaller screens get higher zoom, larger screens get lower zoom
+    const zoomRatio = referenceDiagonal / currentDiagonal
+    let fairZoom = referenceZoom * zoomRatio
+    
+    // Apply reasonable bounds to prevent extreme zoom levels
+    fairZoom = Math.max(1.5, Math.min(4.0, fairZoom))
+    
+    // For competitive fairness, we can also limit maximum advantage
+    // Ultra-wide monitors shouldn't see significantly more than 16:9
+    const aspectRatio = this.canvas.width / this.canvas.height
+    const referenceAspectRatio = referenceWidth / referenceHeight
+    
+    if (aspectRatio > referenceAspectRatio * 1.5) {
+      // Apply penalty for ultra-wide screens
+      fairZoom *= 1.2
+    }
+    
+    console.log(`📐 Resolution: ${this.canvas.width}x${this.canvas.height}, Aspect: ${aspectRatio.toFixed(2)}, Fair Zoom: ${fairZoom.toFixed(2)}`);
+    
+    return fairZoom
   }
 
   // Convert world coordinates to isometric screen coordinates
@@ -363,17 +408,27 @@ export class IsometricRenderer {
   private processChunkForRendering(chunk: any, viewBounds: any, playerPosition?: { x: number, y: number }) {
     const { buildings, npcs, infrastructure, loot } = chunk.generatedData
 
-    // Add buildings to render queue
+    // Add buildings to render queue with performance limits
     if (buildings && Array.isArray(buildings)) {
+      let buildingsAdded = 0
+      const maxBuildingsPerChunk = gameSettings.getSettings().maxBuildingsPerChunk
+      
       buildings.forEach((building: any) => {
+        if (buildingsAdded >= maxBuildingsPerChunk) return // Hard limit to prevent thousands of buildings
+        
         const bx = building.position?.x ?? building.x ?? 0
         const by = building.position?.y ?? building.y ?? 0
         const objPos = { x: bx, y: by }
         if (this.isInViewBounds(objPos, viewBounds)) {
           const depth = by + (building.size?.y ?? building.height ?? 40)
           this.addToRenderQueue(depth, () => this.renderBuilding3D(building, playerPosition))
+          buildingsAdded++
         }
       })
+      
+      if (buildingsAdded >= maxBuildingsPerChunk) {
+        console.warn(`🏢 Building limit reached for chunk ${chunk.id}, rendered ${buildingsAdded}/${buildings.length} buildings`)
+      }
     }
 
     // Add infrastructure (street lights, etc.)
@@ -1386,8 +1441,9 @@ export class IsometricRenderer {
     const topLeft = this.screenToWorld(0, 0)
     const bottomRight = this.screenToWorld(this.canvas.width, this.canvas.height)
     
-    // Expand view bounds significantly to prevent culling issues
-    const margin = 500 // pixels of margin
+    // Smaller margin for more aggressive culling to prevent performance issues
+    // This prevents thousands of buildings from being rendered when traveling
+    const margin = 200 // Reduced from 500 to 200 pixels
     return {
       left: topLeft.x - margin,
       right: bottomRight.x + margin,
@@ -1459,5 +1515,15 @@ export class IsometricRenderer {
     this.shadowCanvas.height = height
     this.fogCanvas.width = width
     this.fogCanvas.height = height
+
+    // Recalculate fair zoom on resize to maintain equal footing
+    this.baseZoom = this.calculateFairZoom()
+    this.camera.zoom = gameSettings.getEffectiveZoom(this.baseZoom, width, height)
+    
+    // Log fairness warnings if any
+    const warnings = gameSettings.getValidationWarnings(width, height, this.camera.zoom)
+    if (warnings.length > 0) {
+      console.warn('⚖️ Display fairness warnings:', warnings)
+    }
   }
 }

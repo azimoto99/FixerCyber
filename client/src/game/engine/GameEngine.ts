@@ -176,7 +176,10 @@ export class GameEngine {
     // Set initial camera position to follow player immediately
     const playerTileX = demoPlayer.position.x / 50
     const playerTileY = demoPlayer.position.y / 50
-    this.renderer?.setCamera(playerTileX, playerTileY, 2.7)
+    // Use renderer's fair zoom instead of hardcoded value
+    const currentCamera = this.renderer?.getCamera()
+    const fairZoom = currentCamera?.zoom || 2.7
+    this.renderer?.setCamera(playerTileX, playerTileY, fairZoom)
     console.log(`Initial camera set to (${playerTileX}, ${playerTileY}) for player at (${demoPlayer.position.x}, ${demoPlayer.position.y})`)
     
     // Force camera update to ensure it's following
@@ -264,9 +267,9 @@ export class GameEngine {
         return
       }
       
-      // Direct camera positioning - no lerping for immediate following
+      // Direct camera positioning - preserve fair zoom
       this.renderer?.setCamera(targetX, targetY, currentCamera.zoom)
-      console.log(`Camera set to (${targetX}, ${targetY}) following player at world (${playerPosition.x}, ${playerPosition.y})`)
+      // console.log(`Camera set to (${targetX}, ${targetY}) following player at world (${playerPosition.x}, ${playerPosition.y})`) // Reduced logging
       
     } catch (error) {
       console.error('GameEngine: Error updating camera:', error)
@@ -524,11 +527,17 @@ export class GameEngine {
     }
   }
   
-  // Load chunks that don't exist yet
+  // Load chunks that don't exist yet with performance safeguards
   private loadMissingChunks(chunks: { x: number, y: number }[]): void {
     let chunksLoaded = 0
+    const maxChunksPerFrame = 2 // Limit chunks loaded per frame to prevent stuttering
     
     for (const { x, y } of chunks) {
+      if (chunksLoaded >= maxChunksPerFrame) {
+        console.log(`🔄 Chunk loading limited: ${chunksLoaded}/${chunks.length} chunks loaded this frame`);
+        break;
+      }
+      
       const chunkId = `chunk_${x}_${y}`
       
       // Only load if chunk doesn't exist
@@ -540,10 +549,10 @@ export class GameEngine {
           
           if (chunk) {
             chunksLoaded++
-            console.log(`📦 Loaded chunk (${x}, ${y}) in ${loadTime.toFixed(1)}ms`)
+            console.log(`📦 Loaded chunk (${x}, ${y}) in ${loadTime.toFixed(1)}ms (${chunk.generatedData?.buildings?.length || 0} buildings)`)
             
             // Break if chunk took too long to load (prevent frame drops)
-            if (loadTime > 50) {
+            if (loadTime > 30) { // Reduced from 50ms to 30ms for better performance
               console.warn(`⚠️ Chunk loading took ${loadTime.toFixed(1)}ms - stopping to prevent frame drops`)
               break
             }
@@ -558,8 +567,9 @@ export class GameEngine {
       this.lastChunkLoadTime = performance.now()
       console.log(`✅ Loaded ${chunksLoaded} new chunks near player`)
       
-      // Update world state with new chunks
+      // Update world state with new chunks and clean up distant chunks
       if (this.worldSystem) {
+        this.cleanupDistantChunks()
         const worldState = this.worldSystem.getWorldState()
         if (worldState) {
           worldState.chunks = Array.from(this.worldSystem.getChunks())
@@ -567,7 +577,52 @@ export class GameEngine {
       }
     }
   }
-
+  
+  // Clean up distant chunks to prevent memory bloat
+  private cleanupDistantChunks(): void {
+    try {
+      const playerPosition = this.movementSystem?.getPlayerPosition()
+      if (!playerPosition) return
+      
+      const maxChunks = 25 // Maximum number of chunks to keep loaded
+      const maxDistance = 2500 // Maximum distance to keep chunks loaded (world pixels)
+      const chunkSize = 1000
+      
+      const loadedChunks = Array.from(this.worldSystem?.getChunks() || [])
+      
+      if (loadedChunks.length <= maxChunks) return // No cleanup needed
+      
+      // Calculate distances and find chunks to unload
+      const chunksWithDistance = loadedChunks.map(chunk => {
+        const chunkCenterX = chunk.x * chunkSize + chunkSize / 2
+        const chunkCenterY = chunk.y * chunkSize + chunkSize / 2
+        const dx = chunkCenterX - playerPosition.x
+        const dy = chunkCenterY - playerPosition.y
+        const distance = Math.sqrt(dx * dx + dy * dy)
+        
+        return { chunk, distance }
+      })
+      
+      // Sort by distance and unload the furthest chunks
+      chunksWithDistance.sort((a, b) => b.distance - a.distance)
+      
+      let chunksUnloaded = 0
+      for (const { chunk, distance } of chunksWithDistance) {
+        if (loadedChunks.length - chunksUnloaded <= maxChunks) break
+        if (distance > maxDistance) {
+          this.worldSystem?.removeChunk(chunk.id)
+          chunksUnloaded++
+        }
+      }
+      
+      if (chunksUnloaded > 0) {
+        console.log(`🧹 Unloaded ${chunksUnloaded} distant chunks, ${loadedChunks.length - chunksUnloaded} remain`)
+      }
+    } catch (error) {
+      console.warn('GameEngine: Error cleaning up chunks:', error)
+    }
+  }
+  
   // Public methods for external access
   getWorldSystem() {
     return this.worldSystem
