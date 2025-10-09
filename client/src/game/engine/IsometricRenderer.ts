@@ -36,7 +36,7 @@ export interface LightSource {
 export class IsometricRenderer {
   private canvas: HTMLCanvasElement
   private ctx: CanvasRenderingContext2D
-  private camera: { x: number; y: number; zoom: number } = { x: 0, y: 0, zoom: 1.5 }
+  private camera: { x: number; y: number; zoom: number } = { x: 0, y: 0, zoom: 2.7 }
   private tileSize = 64 // Base tile size in pixels
   private renderQueue: { depth: number; render: () => void }[] = []
   private lightSources: LightSource[] = []

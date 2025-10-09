@@ -176,7 +176,7 @@ export class GameEngine {
     // Set initial camera position to follow player immediately
     const playerTileX = demoPlayer.position.x / 50
     const playerTileY = demoPlayer.position.y / 50
-    this.renderer?.setCamera(playerTileX, playerTileY, 1.5)
+    this.renderer?.setCamera(playerTileX, playerTileY, 2.7)
     console.log(`Initial camera set to (${playerTileX}, ${playerTileY}) for player at (${demoPlayer.position.x}, ${demoPlayer.position.y})`)
     
     // Force camera update to ensure it's following

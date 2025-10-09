@@ -68,8 +68,8 @@ export function GameCanvas() {
           },
           // Spawn position - start at center of world
           { x: 500, y: 500 },
-          // Chunk radius: 1 = 3x3 chunks around player
-          1
+          // Chunk radius: 0 = only center chunk for performance
+          0
         )
       } catch (error) {
         console.error('❌ Game initialization failed:', error)
