@@ -40,7 +40,6 @@ export class IsometricRenderer {
   private ctx: CanvasRenderingContext2D
   private camera: { x: number; y: number; zoom: number } = { x: 0, y: 0, zoom: 2.7 }
   private baseZoom: number = 2.7
-  private targetViewDistance: number = 800 // Target viewing distance in world pixels for fairness
   private tileSize = 64 // Base tile size in pixels
   private renderQueue: { depth: number; render: () => void }[] = []
   private lightSources: LightSource[] = []

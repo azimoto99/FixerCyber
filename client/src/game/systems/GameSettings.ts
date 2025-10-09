@@ -82,7 +82,7 @@ export class GameSettingsManager {
   }
   
   // Get the effective zoom for the current resolution
-  getEffectiveZoom(rendererZoom: number, canvasWidth: number, canvasHeight: number): number {
+  getEffectiveZoom(rendererZoom: number, _canvasWidth: number, _canvasHeight: number): number {
     if (!this.settings.enforceZoomFairness && this.settings.manualZoom !== undefined) {
       // Allow manual zoom only if not enforcing fairness
       return Math.max(1.0, Math.min(5.0, this.settings.manualZoom))
