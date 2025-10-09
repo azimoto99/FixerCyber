@@ -1440,10 +1440,11 @@ export class IsometricRenderer {
 
   // Camera controls
   setCamera(x: number, y: number, zoom: number) {
-    // Store camera center in world tile units
-    this.camera.x = x / 50
-    this.camera.y = y / 50
+    // Store camera center in world tile units (x, y are already in tile coordinates)
+    this.camera.x = x
+    this.camera.y = y
     this.camera.zoom = Math.max(0.5, Math.min(4, zoom))
+    console.log(`Renderer: Camera set to (${x}, ${y}) with zoom ${zoom}`)
   }
 
   getCamera() {

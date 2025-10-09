@@ -50,7 +50,7 @@ export class UISystem {
     // Render HUD elements
     this.renderHealthBar()
     this.renderAmmoCounter()
-    this.renderCrosshair()
+    // this.renderCrosshair() // Removed - only cursor should be crosshair
     this.renderMiniMap()
     this.renderDamageNumbers()
     this.renderKillFeed()
@@ -151,6 +151,8 @@ export class UISystem {
     }
   }
 
+  // Removed renderCrosshair method - only cursor should be crosshair
+  /*
   private renderCrosshair() {
     const centerX = this.canvas.width / 2
     const centerY = this.canvas.height / 2
@@ -185,6 +187,7 @@ export class UISystem {
     
     this.ctx.restore()
   }
+  */
 
   private renderMiniMap() {
     const size = 120

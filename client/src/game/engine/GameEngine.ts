@@ -173,11 +173,14 @@ export class GameEngine {
     // Initialize player in combat system
     this.combatSystem.initializePlayer(demoPlayer.id, 100, 0)
     
-    // Set initial camera position to follow player
+    // Set initial camera position to follow player immediately
     const playerTileX = demoPlayer.position.x / 50
     const playerTileY = demoPlayer.position.y / 50
     this.renderer?.setCamera(playerTileX, playerTileY, 1.5)
-    console.log(`Initial camera set to (${playerTileX}, ${playerTileY})`)
+    console.log(`Initial camera set to (${playerTileX}, ${playerTileY}) for player at (${demoPlayer.position.x}, ${demoPlayer.position.y})`)
+    
+    // Force camera update to ensure it's following
+    this.updateCamera()
     
     console.log('Player initialized, world has players:', this.worldSystem.getPlayers().length)
   }
@@ -237,29 +240,34 @@ export class GameEngine {
   private updateCamera() {
     try {
       const playerPosition = this.movementSystem?.getPlayerPosition()
-      if (!playerPosition) return
+      if (!playerPosition) {
+        console.warn('GameEngine: No player position available for camera')
+        return
+      }
       
       // Always update camera to follow player
       const currentCamera = this.renderer?.getCamera()
-      if (!currentCamera) return
+      if (!currentCamera) {
+        console.warn('GameEngine: No camera available')
+        return
+      }
       
-      const lerpFactor = 0.3 // Snappier camera for ARPG feel
+      // const lerpFactor = 0.5 // More responsive camera
       
       // Convert player world position to tile coordinates for camera
       const targetX = playerPosition.x / 50 // Convert to tile coordinates
       const targetY = playerPosition.y / 50
       
       // Safety checks for valid numbers
-      if (!isFinite(targetX) || !isFinite(targetY)) return
-      
-      const newX = currentCamera.x + (targetX - currentCamera.x) * lerpFactor
-      const newY = currentCamera.y + (targetY - currentCamera.y) * lerpFactor
-      
-      // Safety checks for camera position
-      if (isFinite(newX) && isFinite(newY)) {
-        this.renderer?.setCamera(newX, newY, currentCamera.zoom)
-        console.log(`Camera updated to (${newX}, ${newY}) following player at (${targetX}, ${targetY})`)
+      if (!isFinite(targetX) || !isFinite(targetY)) {
+        console.warn('GameEngine: Invalid player position for camera:', { targetX, targetY })
+        return
       }
+      
+      // Direct camera positioning - no lerping for immediate following
+      this.renderer?.setCamera(targetX, targetY, currentCamera.zoom)
+      console.log(`Camera set to (${targetX}, ${targetY}) following player at world (${playerPosition.x}, ${playerPosition.y})`)
+      
     } catch (error) {
       console.error('GameEngine: Error updating camera:', error)
     }
@@ -379,6 +387,12 @@ export class GameEngine {
       
       // Update camera to follow player
       this.updateCamera()
+      
+      // Debug: Log player position every few frames
+      if (Math.floor(Date.now() / 1000) % 2 === 0) {
+        const playerPos = this.movementSystem.getPlayerPosition()
+        console.log('Player position:', playerPos)
+      }
       
       // Check if we need to load more chunks (smart loading)
       this.checkChunkBoundaries()
