@@ -1,0 +1,203 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Enhanced Sprite Properties Demo</title>
+    <style>
+      body {
+        margin: 0;
+        padding: 20px;
+        background: #1a1a1a;
+        color: white;
+        font-family: monospace;
+      }
+      canvas {
+        border: 1px solid #333;
+        background: #0a0a0a;
+      }
+      .controls {
+        margin-top: 10px;
+      }
+      button {
+        margin: 5px;
+        padding: 10px;
+        background: #333;
+        color: white;
+        border: none;
+        cursor: pointer;
+      }
+      button:hover {
+        background: #555;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Enhanced Sprite Properties Demo</h1>
+    <canvas id="gameCanvas" width="800" height="600"></canvas>
+
+    <div class="controls">
+      <button onclick="addGlowSprite()">Add Glow Sprite</button>
+      <button onclick="addPulseSprite()">Add Pulse Sprite</button>
+      <button onclick="addShadowSprite()">Add Shadow Sprite</button>
+      <button onclick="addBorderSprite()">Add Border Sprite</button>
+      <button onclick="addPlayerSprite()">Add Player Sprite</button>
+      <button onclick="addEffectSprite()">Add Effect Sprite</button>
+      <button onclick="clearSprites()">Clear All</button>
+    </div>
+
+    <div id="info">
+      <p>Click buttons to add sprites with different effects!</p>
+      <p>Sprites: <span id="spriteCount">0</span></p>
+    </div>
+
+    <script type="module">
+      import {
+        IsometricRenderer,
+        RenderLayer,
+      } from './src/game/engine/IsometricRenderer.js';
+      import { Vector2 } from './src/game/utils/Vector2.js';
+
+      const canvas = document.getElementById('gameCanvas');
+      const renderer = new IsometricRenderer(canvas);
+      const spriteCountElement = document.getElementById('spriteCount');
+
+      let spriteCount = 0;
+
+      function updateSpriteCount() {
+        spriteCount = renderer.getRenderQueueSize();
+        spriteCountElement.textContent = spriteCount;
+      }
+
+      function getRandomPosition() {
+        return new Vector2(
+          Math.random() * 10 - 5, // -5 to 5 world units
+          Math.random() * 10 - 5
+        );
+      }
+
+      function getRandomColor() {
+        const colors = [
+          '#ff6600',
+          '#00ff66',
+          '#0066ff',
+          '#ff0066',
+          '#ffff00',
+          '#ff00ff',
+          '#00ffff',
+        ];
+        return colors[Math.floor(Math.random() * colors.length)];
+      }
+
+      window.addGlowSprite = function () {
+        const sprite = renderer.createSpriteWithEffects(
+          getRandomPosition(),
+          new Vector2(1, 1),
+          getRandomColor(),
+          {
+            glow: true,
+            alpha: 0.8,
+            layer: RenderLayer.EFFECTS,
+          }
+        );
+        renderer.addToRenderQueue(sprite);
+        updateSpriteCount();
+      };
+
+      window.addPulseSprite = function () {
+        const sprite = renderer.createSpriteWithEffects(
+          getRandomPosition(),
+          new Vector2(1.5, 1.5),
+          getRandomColor(),
+          {
+            pulse: true,
+            layer: RenderLayer.CHARACTERS,
+          }
+        );
+        renderer.addToRenderQueue(sprite);
+        updateSpriteCount();
+      };
+
+      window.addShadowSprite = function () {
+        const sprite = renderer.createSpriteWithEffects(
+          getRandomPosition(),
+          new Vector2(2, 2),
+          getRandomColor(),
+          {
+            shadow: true,
+            height: 1,
+            layer: RenderLayer.OBJECTS,
+          }
+        );
+        renderer.addToRenderQueue(sprite);
+        updateSpriteCount();
+      };
+
+      window.addBorderSprite = function () {
+        const sprite = renderer.createSpriteWithEffects(
+          getRandomPosition(),
+          new Vector2(1.2, 1.2),
+          getRandomColor(),
+          {
+            border: true,
+            alpha: 0.7,
+            layer: RenderLayer.UI,
+          }
+        );
+        renderer.addToRenderQueue(sprite);
+        updateSpriteCount();
+      };
+
+      window.addPlayerSprite = function () {
+        const gameObject = {
+          position: getRandomPosition(),
+          size: new Vector2(1, 1),
+          color: getRandomColor(),
+          health: Math.random() < 0.3 ? 20 : 80, // 30% chance of low health
+          id: `player-${Date.now()}`,
+        };
+
+        const sprite = renderer.createGameObjectSprite(gameObject, 'player');
+        renderer.addToRenderQueue(sprite);
+        updateSpriteCount();
+      };
+
+      window.addEffectSprite = function () {
+        const gameObject = {
+          position: getRandomPosition(),
+          size: new Vector2(0.8, 0.8),
+          color: getRandomColor(),
+          id: `effect-${Date.now()}`,
+        };
+
+        const sprite = renderer.createGameObjectSprite(gameObject, 'effect');
+        renderer.addToRenderQueue(sprite);
+        updateSpriteCount();
+      };
+
+      window.clearSprites = function () {
+        renderer.clearRenderQueue();
+        updateSpriteCount();
+      };
+
+      // Animation loop
+      function animate() {
+        renderer.clear();
+        renderer.processRenderQueue();
+        requestAnimationFrame(animate);
+      }
+
+      // Start animation
+      animate();
+      updateSpriteCount();
+
+      console.log('Enhanced Sprite Properties Demo loaded!');
+      console.log('Available methods:', {
+        createSpriteWithEffects: typeof renderer.createSpriteWithEffects,
+        createGameObjectSprite: typeof renderer.createGameObjectSprite,
+        applySpriteEffect: typeof renderer.applySpriteEffect,
+        updateSpriteProperties: typeof renderer.updateSpriteProperties,
+      });
+    </script>
+  </body>
+</html>

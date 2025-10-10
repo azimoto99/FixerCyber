@@ -79,13 +79,16 @@ export class GameEngine {
     // Combat system events
     this.combatSystem.on('shotFired', (data: any) => {
       console.log('Shot fired by:', data.playerId);
-      
+
       // Trigger shooting animation
       const shootDirection = new Vector2(
         data.target.x - data.playerPosition.x,
         data.target.y - data.playerPosition.y
       );
-      this.characterAnimationSystem?.triggerShootingAnimation(data.playerId, shootDirection);
+      this.characterAnimationSystem?.triggerShootingAnimation(
+        data.playerId,
+        shootDirection
+      );
     });
 
     this.combatSystem.on('projectileHit', (data: any) => {
@@ -106,7 +109,9 @@ export class GameEngine {
       // Show damage number at target location
       const targetPlayer = this.worldSystem.getPlayer(data.targetId);
       if (targetPlayer) {
-        const screenPos = this.screenToWorld(targetPlayer.position);
+        const screenPos = this.renderer.worldToScreen(
+          { x: targetPlayer.position.x, y: targetPlayer.position.y }
+        );
         this.uiSystem.addDamageNumber(
           screenPos.x,
           screenPos.y - 20,
@@ -138,16 +143,19 @@ export class GameEngine {
 
     this.combatSystem.on('reloadStarted', (data: any) => {
       console.log('Reload started for:', data.playerId);
-      
+
       // Trigger reload animation
       this.characterAnimationSystem?.setCharacterReloading(data.playerId, true);
     });
 
     this.combatSystem.on('reloadComplete', (data: any) => {
       console.log('Reload complete for:', data.playerId);
-      
+
       // Stop reload animation
-      this.characterAnimationSystem?.setCharacterReloading(data.playerId, false);
+      this.characterAnimationSystem?.setCharacterReloading(
+        data.playerId,
+        false
+      );
     });
 
     // Game system events - commented out until event systems are properly implemented
@@ -171,16 +179,25 @@ export class GameEngine {
         this.characterAnimationSystem?.setCharacterHacking('demo-player', true);
         // Auto-stop hacking animation after a delay (simulating hack completion)
         setTimeout(() => {
-          this.characterAnimationSystem?.setCharacterHacking('demo-player', false);
+          this.characterAnimationSystem?.setCharacterHacking(
+            'demo-player',
+            false
+          );
         }, 2000);
         break;
       case 'interact':
         this.worldSystem.handleInteraction(data);
         // Trigger interaction animation
-        this.characterAnimationSystem?.setCharacterInteracting('demo-player', true);
+        this.characterAnimationSystem?.setCharacterInteracting(
+          'demo-player',
+          true
+        );
         // Auto-stop interaction animation after a delay
         setTimeout(() => {
-          this.characterAnimationSystem?.setCharacterInteracting('demo-player', false);
+          this.characterAnimationSystem?.setCharacterInteracting(
+            'demo-player',
+            false
+          );
         }, 1500);
         break;
       case 'inventory':
@@ -196,7 +213,10 @@ export class GameEngine {
         break;
       case 'prone':
         // Toggle prone animation
-        this.characterAnimationSystem?.setCharacterProne('demo-player', data.isProne);
+        this.characterAnimationSystem?.setCharacterProne(
+          'demo-player',
+          data.isProne
+        );
         break;
     }
   }
@@ -244,7 +264,7 @@ export class GameEngine {
     const playerTileX = demoPlayer.position.x / 50;
     const playerTileY = demoPlayer.position.y / 50;
     // Use renderer's fair zoom instead of hardcoded value
-    this.renderer?.setCameraPosition(new Vector2(playerTileX, playerTileY));
+    this.renderer?.setCameraPosition({ x: playerTileX, y: playerTileY });
     console.log(
       `Initial camera set to (${playerTileX}, ${playerTileY}) for player at (${demoPlayer.position.x}, ${demoPlayer.position.y})`
     );
@@ -265,7 +285,9 @@ export class GameEngine {
 
     if (combatAction === 'shoot') {
       // Convert screen coordinates to world coordinates using isometric projection
-      const worldTarget = this.renderer.screenToWorld(new Vector2(mousePos.x, mousePos.y));
+      const worldTarget = this.renderer.screenToWorld(
+        mousePos.x, mousePos.y
+      );
 
       const shootData = {
         playerId: 'demo-player',
@@ -336,9 +358,10 @@ export class GameEngine {
         return;
       }
 
-      // Direct camera positioning - preserve current zoom
-      this.renderer?.setCameraPosition(new Vector2(targetX, targetY));
-      // console.log(`Camera set to (${targetX}, ${targetY}) following player at world (${playerPosition.x}, ${playerPosition.y})`) // Reduced logging
+      // Use smooth camera following instead of direct positioning
+      this.renderer?.setCameraTarget(new Vector2(targetX, targetY));
+      this.renderer?.updateCameraSystem(this.deltaTime);
+      // console.log(`Camera target set to (${targetX}, ${targetY}) following player at world (${playerPosition.x}, ${playerPosition.y})`) // Reduced logging
     } catch (error) {
       console.error('GameEngine: Error updating camera:', error);
     }
@@ -489,7 +512,7 @@ export class GameEngine {
     // Only render if world is loaded
     if (!this.isWorldLoaded) {
       // Show simple loading message if not using loading screen
-      this.renderer?.clear();
+      // this.renderer?.clear();
       return;
     }
 
@@ -498,21 +521,10 @@ export class GameEngine {
       this.renderer?.clear();
 
       // Get current player position for interaction feedback
-      // const playerPosition = this.movementSystem?.getPlayerPosition() || {
+      // const _playerPosition = this.movementSystem?.getPlayerPosition() || {
       //   x: 0,
       //   y: 0,
       // };
-
-      // Optional player light to improve readability
-      // TODO: Implement lighting system in renderer
-      // this.renderer?.addLight({
-      //   x: playerPosition.x,
-      //   y: playerPosition.y,
-      //   z: 50,
-      //   intensity: 0.6,
-      //   color: '#44aaff',
-      //   radius: 180,
-      // });
 
       // Render world with player position for interaction feedback
       const worldState = this.worldSystem?.getWorldState();
@@ -522,8 +534,13 @@ export class GameEngine {
           worldState.chunks?.length || 0,
           'chunks'
         );
-        // TODO: Implement renderWorld method in IsometricRenderer
-        // this.renderer?.renderWorld(worldState, playerPosition);
+        this.renderer?.renderWorld(
+          worldState.chunks || [],
+          worldState.buildings || [],
+          worldState.infrastructure || [],
+          worldState.npcs || [],
+          worldState.loot || []
+        );
       } else {
         console.warn('GameEngine: No world state to render!');
       }
@@ -531,16 +548,20 @@ export class GameEngine {
       // Render players
       const players = this.worldSystem?.getPlayers();
       if (players && players.length > 0) {
-        // TODO: Implement renderPlayers method in IsometricRenderer
-        // this.renderer?.renderPlayers(players);
+        this.renderer?.renderPlayers(players);
       }
 
       // Render projectiles
       const projectiles = this.combatSystem?.getProjectiles();
       if (projectiles) {
-        // TODO: Implement renderProjectiles method in IsometricRenderer
-        // this.renderer?.renderProjectiles(projectiles);
+        this.renderer?.renderProjectiles(projectiles);
       }
+
+      // Process render queue and apply lighting
+      this.renderer?.renderWithLighting();
+
+      // Update performance stats
+      this.renderer?.updateFrameStats();
 
       // Render UI (new system replaces old crosshair/scanlines)
       this.uiSystem?.render();
@@ -773,11 +794,6 @@ export class GameEngine {
     return this.renderer;
   }
 
-  private screenToWorld(worldPos: { x: number; y: number }) {
-    // Convert a world position (pixels) to screen coordinates using the isometric renderer
-    return this.renderer.worldToScreen(new Vector2(worldPos.x, worldPos.y));
-  }
-
   getMovementSystem() {
     return this.movementSystem;
   }
@@ -820,9 +836,6 @@ export class GameEngine {
   setChunkLoadingParams(distance: number = 800, cooldown: number = 2000): void {
     this.chunkLoadDistance = distance;
     this.chunkLoadCooldown = cooldown;
-    console.log(
-      `🔧 Updated chunk loading: distance=${distance}px, cooldown=${cooldown}ms`
-    );
   }
 
   // Cleanup

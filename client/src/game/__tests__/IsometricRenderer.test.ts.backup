@@ -1,0 +1,1626 @@
+import { beforeEach, describe, expect, it } from 'vitest';
+import { IsometricRenderer, Sprite } from '../engine/IsometricRenderer';
+import { Vector2 } from '../utils/Vector2';
+
+describe('IsometricRenderer', () => {
+  let canvas: HTMLCanvasElement;
+  let renderer: IsometricRenderer;
+
+  beforeEach(() => {
+    // Create a mock canvas for testing
+    canvas = document.createElement('canvas');
+    canvas.width = 800;
+    canvas.height = 600;
+    renderer = new IsometricRenderer(canvas);
+  });
+
+  describe('Coordinate Conversion', () => {
+    it('should convert world origin to screen center', () => {
+      const worldOrigin = new Vector2(0, 0);
+      const screenPos = renderer.worldToScreen(worldOrigin);
+
+      expect(screenPos.x).toBeCloseTo(400, 1); // Canvas width / 2
+      expect(screenPos.y).toBeCloseTo(300, 1); // Canvas height / 2
+    });
+
+    it('should convert screen center back to world origin', () => {
+      const screenCenter = new Vector2(400, 300);
+      const worldPos = renderer.screenToWorld(screenCenter);
+
+      expect(worldPos.x).toBeCloseTo(0, 5);
+      expect(worldPos.y).toBeCloseTo(0, 5);
+    });
+
+    it('should maintain proper 2:1 isometric ratio', () => {
+      // Test point at (1, 0) in world coordinates
+      const worldPos1 = new Vector2(1, 0);
+      const screenPos1 = renderer.worldToScreen(worldPos1);
+
+      // Test point at (0, 1) in world coordinates
+      const worldPos2 = new Vector2(0, 1);
+      const screenPos2 = renderer.worldToScreen(worldPos2);
+
+      // In isometric projection, moving 1 unit in X should move screen position by tileSize/2 in X
+      // and tileSize/4 in Y
+      const expectedXDiff = 32; // tileSize/2 = 64/2 = 32
+      const expectedYDiff = 16; // tileSize/4 = 64/4 = 16
+
+      expect(screenPos1.x - 400).toBeCloseTo(expectedXDiff, 1);
+      expect(screenPos1.y - 300).toBeCloseTo(expectedYDiff, 1);
+
+      expect(screenPos2.x - 400).toBeCloseTo(-expectedXDiff, 1);
+      expect(screenPos2.y - 300).toBeCloseTo(expectedYDiff, 1);
+    });
+
+    it('should handle coordinate conversion with camera offset', () => {
+      // Move camera to (10, 10)
+      renderer.setCameraPosition(new Vector2(10, 10));
+
+      const worldPos = new Vector2(10, 10);
+      const screenPos = renderer.worldToScreen(worldPos);
+
+      // Point at camera position should be at screen center
+      expect(screenPos.x).toBeCloseTo(400, 1);
+      expect(screenPos.y).toBeCloseTo(300, 1);
+    });
+
+    it('should handle coordinate conversion with zoom', () => {
+      renderer.setCameraZoom(2.0);
+
+      const worldPos = new Vector2(1, 0);
+      const screenPos = renderer.worldToScreen(worldPos);
+
+      // With 2x zoom, distances should be doubled
+      const expectedXDiff = 64; // 32 * 2
+      const expectedYDiff = 32; // 16 * 2
+
+      expect(screenPos.x - 400).toBeCloseTo(expectedXDiff, 1);
+      expect(screenPos.y - 300).toBeCloseTo(expectedYDiff, 1);
+    });
+
+    it('should be reversible (world -> screen -> world)', () => {
+      const originalWorld = new Vector2(5, -3);
+      const screenPos = renderer.worldToScreen(originalWorld);
+      const convertedWorld = renderer.screenToWorld(screenPos);
+
+      expect(convertedWorld.x).toBeCloseTo(originalWorld.x, 5);
+      expect(convertedWorld.y).toBeCloseTo(originalWorld.y, 5);
+    });
+
+    it('should be reversible with camera offset and zoom', () => {
+      renderer.setCameraPosition(new Vector2(7, -2));
+      renderer.setCameraZoom(1.5);
+
+      const originalWorld = new Vector2(12, 8);
+      const screenPos = renderer.worldToScreen(originalWorld);
+      const convertedWorld = renderer.screenToWorld(screenPos);
+
+      expect(convertedWorld.x).toBeCloseTo(originalWorld.x, 5);
+      expect(convertedWorld.y).toBeCloseTo(originalWorld.y, 5);
+    });
+
+    it('should handle screenToWorld with various zoom levels', () => {
+      const testCases = [0.5, 1.0, 2.0, 3.0];
+      const screenPos = new Vector2(500, 400);
+
+      testCases.forEach(zoom => {
+        renderer.setCameraZoom(zoom);
+        const worldPos = renderer.screenToWorld(screenPos);
+        const backToScreen = renderer.worldToScreen(worldPos);
+
+        expect(backToScreen.x).toBeCloseTo(screenPos.x, 1);
+        expect(backToScreen.y).toBeCloseTo(screenPos.y, 1);
+      });
+    });
+
+    it('should handle screenToWorld with various camera positions', () => {
+      const testPositions = [
+        new Vector2(0, 0),
+        new Vector2(10, 10),
+        new Vector2(-5, 15),
+        new Vector2(100, -50),
+      ];
+      const screenPos = new Vector2(300, 200);
+
+      testPositions.forEach(cameraPos => {
+        renderer.setCameraPosition(cameraPos);
+        const worldPos = renderer.screenToWorld(screenPos);
+        const backToScreen = renderer.worldToScreen(worldPos);
+
+        expect(backToScreen.x).toBeCloseTo(screenPos.x, 1);
+        expect(backToScreen.y).toBeCloseTo(screenPos.y, 1);
+      });
+    });
+
+    it('should maintain mathematical consistency in inverse transformation', () => {
+      // Test that the inverse transformation math is mathematically sound
+      const testPoints = [
+        new Vector2(0, 0),
+        new Vector2(1, 0),
+        new Vector2(0, 1),
+        new Vector2(1, 1),
+        new Vector2(-1, -1),
+        new Vector2(5.5, -3.2),
+      ];
+
+      testPoints.forEach(worldPoint => {
+        const screenPoint = renderer.worldToScreen(worldPoint);
+        const backToWorld = renderer.screenToWorld(screenPoint);
+
+        expect(backToWorld.x).toBeCloseTo(worldPoint.x, 10);
+        expect(backToWorld.y).toBeCloseTo(worldPoint.y, 10);
+      });
+    });
+  });
+
+  describe('Camera System', () => {
+    it('should initialize camera at origin', () => {
+      const cameraPos = renderer.getCameraPosition();
+      expect(cameraPos.x).toBe(0);
+      expect(cameraPos.y).toBe(0);
+      expect(renderer.getCameraZoom()).toBe(1.0);
+    });
+
+    it('should set camera position directly', () => {
+      const newPos = new Vector2(10, 20);
+      renderer.setCameraPosition(newPos);
+
+      const cameraPos = renderer.getCameraPosition();
+      expect(cameraPos.x).toBe(10);
+      expect(cameraPos.y).toBe(20);
+    });
+
+    it('should clamp zoom to reasonable bounds', () => {
+      renderer.setCameraZoom(0.05); // Too small
+      expect(renderer.getCameraZoom()).toBe(0.1);
+
+      renderer.setCameraZoom(10); // Too large
+      expect(renderer.getCameraZoom()).toBe(5.0);
+
+      renderer.setCameraZoom(2.0); // Valid
+      expect(renderer.getCameraZoom()).toBe(2.0);
+    });
+
+    it('should update camera with smooth following', () => {
+      const initialPos = new Vector2(0, 0);
+      const targetPos = new Vector2(10, 10);
+
+      renderer.setCameraPosition(initialPos);
+      renderer.updateCamera(targetPos);
+
+      const cameraPos = renderer.getCameraPosition();
+
+      // Camera should move towards target but not reach it immediately
+      expect(cameraPos.x).toBeGreaterThan(0);
+      expect(cameraPos.x).toBeLessThan(10);
+      expect(cameraPos.y).toBeGreaterThan(0);
+      expect(cameraPos.y).toBeLessThan(10);
+    });
+  });
+
+  describe('Viewport Management', () => {
+    it('should calculate viewport bounds correctly', () => {
+      const bounds = renderer.getViewportBounds();
+
+      expect(bounds.minX).toBeLessThan(bounds.maxX);
+      expect(bounds.minY).toBeLessThan(bounds.maxY);
+
+      // Bounds should be centered around camera position (0, 0)
+      expect(bounds.minX).toBeLessThan(0);
+      expect(bounds.maxX).toBeGreaterThan(0);
+      expect(bounds.minY).toBeLessThan(0);
+      expect(bounds.maxY).toBeGreaterThan(0);
+    });
+
+    it('should check if position is in viewport', () => {
+      const bounds = renderer.getViewportBounds();
+
+      // Position at origin should be in viewport
+      expect(renderer.isInViewport(new Vector2(0, 0), bounds)).toBe(true);
+
+      // Position far outside should not be in viewport
+      expect(renderer.isInViewport(new Vector2(1000, 1000), bounds)).toBe(
+        false
+      );
+    });
+
+    it('should adjust viewport bounds with camera movement', () => {
+      const initialBounds = renderer.getViewportBounds();
+
+      renderer.setCameraPosition(new Vector2(50, 50));
+      const movedBounds = renderer.getViewportBounds();
+
+      // Bounds should shift with camera
+      expect(movedBounds.minX).toBeGreaterThan(initialBounds.minX);
+      expect(movedBounds.maxX).toBeGreaterThan(initialBounds.maxX);
+      expect(movedBounds.minY).toBeGreaterThan(initialBounds.minY);
+      expect(movedBounds.maxY).toBeGreaterThan(initialBounds.maxY);
+    });
+
+    it('should adjust viewport bounds with zoom', () => {
+      const initialBounds = renderer.getViewportBounds();
+
+      renderer.setCameraZoom(2.0);
+      const zoomedBounds = renderer.getViewportBounds();
+
+      // Higher zoom should result in smaller viewport bounds
+      const initialWidth = initialBounds.maxX - initialBounds.minX;
+      const zoomedWidth = zoomedBounds.maxX - zoomedBounds.minX;
+
+      expect(zoomedWidth).toBeLessThan(initialWidth);
+    });
+  });
+
+  describe('Render Queue Management', () => {
+    it('should add sprites to render queue', () => {
+      const sprite: Sprite = {
+        position: new Vector2(0, 0),
+        size: new Vector2(32, 32),
+        color: '#ff0000',
+        depth: 0,
+      };
+
+      renderer.clear();
+      renderer.addToRenderQueue(sprite);
+
+      expect(renderer.getRenderQueueSize()).toBe(1);
+      expect(() => renderer.processRenderQueue()).not.toThrow();
+    });
+
+    it('should clear render queue', () => {
+      const sprite: Sprite = {
+        position: new Vector2(0, 0),
+        size: new Vector2(32, 32),
+        color: '#ff0000',
+        depth: 0,
+      };
+
+      renderer.addToRenderQueue(sprite);
+      expect(renderer.getRenderQueueSize()).toBe(1);
+
+      renderer.clearRenderQueue();
+      expect(renderer.getRenderQueueSize()).toBe(0);
+    });
+
+    it('should validate sprite data when adding to queue', () => {
+      // Invalid sprite with missing position
+      const invalidSprite = {
+        size: new Vector2(32, 32),
+        color: '#ff0000',
+        depth: 0,
+      } as Sprite;
+
+      renderer.clear();
+      renderer.addToRenderQueue(invalidSprite);
+
+      // Should not add invalid sprite to queue
+      expect(renderer.getRenderQueueSize()).toBe(0);
+    });
+
+    it('should clamp alpha values to valid range', () => {
+      const sprite: Sprite = {
+        position: new Vector2(0, 0),
+        size: new Vector2(32, 32),
+        color: '#ff0000',
+        depth: 0,
+        alpha: 1.5, // Invalid alpha > 1
+      };
+
+      renderer.clear();
+      renderer.addToRenderQueue(sprite);
+
+      const queue = renderer.getRenderQueue();
+      expect(queue[0].alpha).toBe(1.0); // Should be clamped to 1.0
+    });
+
+    it('should handle negative alpha values', () => {
+      const sprite: Sprite = {
+        position: new Vector2(0, 0),
+        size: new Vector2(32, 32),
+        color: '#ff0000',
+        depth: 0,
+        alpha: -0.5, // Invalid negative alpha
+      };
+
+      renderer.clear();
+      renderer.addToRenderQueue(sprite);
+
+      const queue = renderer.getRenderQueue();
+      expect(queue[0].alpha).toBe(0.0); // Should be clamped to 0.0
+    });
+
+    it('should track render queue size correctly', () => {
+      renderer.clear();
+      expect(renderer.getRenderQueueSize()).toBe(0);
+
+      const sprite1: Sprite = {
+        position: new Vector2(0, 0),
+        size: new Vector2(32, 32),
+        color: '#ff0000',
+        depth: 0,
+      };
+
+      const sprite2: Sprite = {
+        position: new Vector2(1, 1),
+        size: new Vector2(32, 32),
+        color: '#00ff00',
+        depth: 1,
+      };
+
+      renderer.addToRenderQueue(sprite1);
+      expect(renderer.getRenderQueueSize()).toBe(1);
+
+      renderer.addToRenderQueue(sprite2);
+      expect(renderer.getRenderQueueSize()).toBe(2);
+    });
+  });
+
+  describe('Depth Sorting Algorithm', () => {
+    it('should sort sprites by layer first', () => {
+      const groundSprite: Sprite = {
+        position: new Vector2(0, 0),
+        size: new Vector2(32, 32),
+        color: '#8B4513',
+        depth: 10,
+        layer: 0, // GROUND
+        id: 'ground',
+      };
+
+      const characterSprite: Sprite = {
+        position: new Vector2(0, 0),
+        size: new Vector2(32, 32),
+        color: '#FF0000',
+        depth: 5, // Lower depth but higher layer
+        layer: 2, // CHARACTERS
+        id: 'character',
+      };
+
+      renderer.clear();
+      renderer.addToRenderQueue(characterSprite); // Add character first
+      renderer.addToRenderQueue(groundSprite); // Add ground second
+
+      const queueBefore = renderer.getRenderQueue();
+      expect(queueBefore[0].id).toBe('character');
+      expect(queueBefore[1].id).toBe('ground');
+
+      renderer.processRenderQueue();
+
+      // After sorting, ground should come first despite being added second
+      const queueAfter = renderer.getRenderQueue();
+      expect(queueAfter[0].id).toBe('ground');
+      expect(queueAfter[1].id).toBe('character');
+    });
+
+    it('should sort sprites by depth within same layer', () => {
+      const backSprite: Sprite = {
+        position: new Vector2(0, 0),
+        size: new Vector2(32, 32),
+        color: '#FF0000',
+        depth: 5,
+        layer: 1, // OBJECTS
+        id: 'back',
+      };
+
+      const frontSprite: Sprite = {
+        position: new Vector2(0, 0),
+        size: new Vector2(32, 32),
+        color: '#00FF00',
+        depth: 10,
+        layer: 1, // OBJECTS
+        id: 'front',
+      };
+
+      renderer.clear();
+      renderer.addToRenderQueue(frontSprite); // Add front first
+      renderer.addToRenderQueue(backSprite); // Add back second
+
+      renderer.processRenderQueue();
+
+      const queue = renderer.getRenderQueue();
+      expect(queue[0].id).toBe('back'); // Lower depth should render first
+      expect(queue[1].id).toBe('front');
+    });
+
+    it('should sort sprites by zIndex within same layer and depth', () => {
+      const sprite1: Sprite = {
+        position: new Vector2(0, 0),
+        size: new Vector2(32, 32),
+        color: '#FF0000',
+        depth: 5,
+        layer: 1,
+        zIndex: 10,
+        id: 'sprite1',
+      };
+
+      const sprite2: Sprite = {
+        position: new Vector2(0, 0),
+        size: new Vector2(32, 32),
+        color: '#00FF00',
+        depth: 5,
+        layer: 1,
+        zIndex: 5,
+        id: 'sprite2',
+      };
+
+      renderer.clear();
+      renderer.addToRenderQueue(sprite1); // Add higher zIndex first
+      renderer.addToRenderQueue(sprite2); // Add lower zIndex second
+
+      renderer.processRenderQueue();
+
+      const queue = renderer.getRenderQueue();
+      expect(queue[0].id).toBe('sprite2'); // Lower zIndex should render first
+      expect(queue[1].id).toBe('sprite1');
+    });
+
+    it('should handle height offset in depth calculation', () => {
+      const groundSprite: Sprite = {
+        position: new Vector2(0, 0),
+        size: new Vector2(32, 32),
+        color: '#8B4513',
+        depth: 5,
+        height: 0,
+        layer: 1,
+        id: 'ground',
+      };
+
+      const elevatedSprite: Sprite = {
+        position: new Vector2(0, 0),
+        size: new Vector2(32, 32),
+        color: '#FF0000',
+        depth: 5,
+        height: 10, // Same base depth but elevated
+        layer: 1,
+        id: 'elevated',
+      };
+
+      renderer.clear();
+      renderer.addToRenderQueue(elevatedSprite);
+      renderer.addToRenderQueue(groundSprite);
+
+      renderer.processRenderQueue();
+
+      const queue = renderer.getRenderQueue();
+      expect(queue[0].id).toBe('ground'); // Lower total depth (5 + 0 = 5)
+      expect(queue[1].id).toBe('elevated'); // Higher total depth (5 + 10 = 15)
+    });
+
+    it('should maintain stable sort for identical items', () => {
+      const sprite1: Sprite = {
+        position: new Vector2(0, 0),
+        size: new Vector2(32, 32),
+        color: '#FF0000',
+        depth: 5,
+        layer: 1,
+        zIndex: 0,
+        id: 'sprite1',
+      };
+
+      const sprite2: Sprite = {
+        position: new Vector2(1, 1),
+        size: new Vector2(32, 32),
+        color: '#00FF00',
+        depth: 5,
+        layer: 1,
+        zIndex: 0,
+        id: 'sprite2',
+      };
+
+      renderer.clear();
+      renderer.addToRenderQueue(sprite1);
+      renderer.addToRenderQueue(sprite2);
+
+      renderer.processRenderQueue();
+
+      const queue = renderer.getRenderQueue();
+      // Should maintain order by ID for identical sorting criteria
+      expect(queue[0].id).toBe('sprite1');
+      expect(queue[1].id).toBe('sprite2');
+    });
+
+    it('should handle complex multi-layer sorting', () => {
+      const sprites: Sprite[] = [
+        {
+          position: new Vector2(0, 0),
+          size: new Vector2(32, 32),
+          color: '#FF0000',
+          depth: 10,
+          layer: 2,
+          zIndex: 5,
+          id: 'char1',
+        },
+        {
+          position: new Vector2(0, 0),
+          size: new Vector2(32, 32),
+          color: '#00FF00',
+          depth: 5,
+          layer: 0,
+          zIndex: 0,
+          id: 'ground1',
+        },
+        {
+          position: new Vector2(0, 0),
+          size: new Vector2(32, 32),
+          color: '#0000FF',
+          depth: 15,
+          layer: 1,
+          zIndex: 10,
+          id: 'obj1',
+        },
+        {
+          position: new Vector2(0, 0),
+          size: new Vector2(32, 32),
+          color: '#FFFF00',
+          depth: 8,
+          layer: 2,
+          zIndex: 3,
+          id: 'char2',
+        },
+        {
+          position: new Vector2(0, 0),
+          size: new Vector2(32, 32),
+          color: '#FF00FF',
+          depth: 12,
+          layer: 1,
+          zIndex: 8,
+          id: 'obj2',
+        },
+      ];
+
+      renderer.clear();
+      // Add in random order
+      sprites.forEach(sprite => renderer.addToRenderQueue(sprite));
+
+      renderer.processRenderQueue();
+
+      const queue = renderer.getRenderQueue();
+      const ids = queue.map(item => item.id);
+
+      // Expected order: ground1 (layer 0), obj1 (layer 1, depth 15), obj2 (layer 1, depth 12), char2 (layer 2, depth 8), char1 (layer 2, depth 10)
+      expect(ids).toEqual(['ground1', 'obj2', 'obj1', 'char2', 'char1']);
+    });
+
+    it('should handle floating point depth values correctly', () => {
+      const sprite1: Sprite = {
+        position: new Vector2(0, 0),
+        size: new Vector2(32, 32),
+        color: '#FF0000',
+        depth: 5.001,
+        layer: 1,
+        id: 'sprite1',
+      };
+
+      const sprite2: Sprite = {
+        position: new Vector2(0, 0),
+        size: new Vector2(32, 32),
+        color: '#00FF00',
+        depth: 5.002,
+        layer: 1,
+        id: 'sprite2',
+      };
+
+      renderer.clear();
+      renderer.addToRenderQueue(sprite2);
+      renderer.addToRenderQueue(sprite1);
+
+      renderer.processRenderQueue();
+
+      const queue = renderer.getRenderQueue();
+      expect(queue[0].id).toBe('sprite1'); // Lower depth should render first
+      expect(queue[1].id).toBe('sprite2');
+    });
+
+    it('should enable and use optimized sorting for large queues', () => {
+      renderer.enableOptimizedSorting(true);
+
+      // Create many sprites to trigger optimized sorting
+      const sprites: Sprite[] = [];
+      for (let i = 0; i < 1500; i++) {
+        sprites.push({
+          position: new Vector2(i % 10, Math.floor(i / 10)),
+          size: new Vector2(32, 32),
+          color: '#FF0000',
+          depth: Math.random() * 100,
+          layer: i % 5,
+          zIndex: i % 10,
+          id: `sprite${i}`,
+        });
+      }
+
+      renderer.clear();
+      sprites.forEach(sprite => renderer.addToRenderQueue(sprite));
+
+      // Should not throw with optimized sorting
+      expect(() => renderer.processRenderQueueOptimized()).not.toThrow();
+
+      const queue = renderer.getRenderQueue();
+      expect(queue.length).toBe(1500);
+
+      // Verify sorting is correct - check that layers are in order
+      for (let i = 1; i < queue.length; i++) {
+        expect(queue[i].layer).toBeGreaterThanOrEqual(queue[i - 1].layer);
+      }
+    });
+  });
+
+  describe('Canvas Management', () => {
+    it('should get canvas size correctly', () => {
+      const size = renderer.getCanvasSize();
+      expect(size.x).toBe(800);
+      expect(size.y).toBe(600);
+    });
+
+    it('should resize canvas', () => {
+      renderer.resize(1024, 768);
+
+      const size = renderer.getCanvasSize();
+      expect(size.x).toBe(1024);
+      expect(size.y).toBe(768);
+    });
+
+    it('should clear canvas without errors', () => {
+      expect(() => renderer.clear()).not.toThrow();
+    });
+  });
+
+  describe('Performance Monitoring', () => {
+    it('should initialize performance stats correctly', () => {
+      const stats = renderer.getPerformanceStats();
+
+      expect(stats.fps).toBe(0);
+      expect(stats.frameTime).toBe(0);
+      expect(stats.renderTime).toBe(0);
+      expect(stats.culledItems).toBe(0);
+      expect(stats.renderedItems).toBe(0);
+      expect(stats.totalItems).toBe(0);
+      expect(stats.itemsByLayer).toEqual({});
+      expect(stats.itemsByAlpha.opaque).toBe(0);
+      expect(stats.itemsByAlpha.transparent).toBe(0);
+    });
+
+    it('should track frame timing with startFrame and endFrame', () => {
+      renderer.startFrame();
+
+      // Simulate some work
+      const start = performance.now();
+      while (performance.now() - start < 10) {
+        // Wait 10ms
+      }
+
+      renderer.endFrame();
+
+      const stats = renderer.getPerformanceStats();
+      expect(stats.frameTime).toBeGreaterThan(8); // Should be at least 8ms
+      expect(stats.frameTime).toBeLessThan(50); // Should be less than 50ms
+    });
+
+    it('should calculate FPS correctly over multiple frames', () => {
+      // Simulate multiple frames
+      for (let i = 0; i < 5; i++) {
+        renderer.startFrame();
+        // Simulate 16ms frame time (60 FPS)
+        const start = performance.now();
+        while (performance.now() - start < 16) {
+          // Wait 16ms
+        }
+        renderer.endFrame();
+      }
+
+      // Wait for FPS calculation (needs 1 second)
+      const start = performance.now();
+      while (performance.now() - start < 1100) {
+        renderer.startFrame();
+        renderer.endFrame();
+      }
+
+      const stats = renderer.getPerformanceStats();
+      expect(stats.fps).toBeGreaterThan(0);
+    });
+
+    it('should track render time during queue processing', () => {
+      const sprite: Sprite = {
+        position: new Vector2(0, 0),
+        size: new Vector2(32, 32),
+        color: '#ff0000',
+        depth: 0,
+      };
+
+      renderer.clear();
+      renderer.addToRenderQueue(sprite);
+      renderer.processRenderQueue();
+
+      const stats = renderer.getPerformanceStats();
+      expect(stats.renderTime).toBeGreaterThanOrEqual(0);
+      expect(stats.renderedItems).toBe(1);
+    });
+
+    it('should provide smoothed performance stats', () => {
+      // Add multiple frame times to history
+      for (let i = 0; i < 10; i++) {
+        renderer.startFrame();
+        const start = performance.now();
+        while (performance.now() - start < 16 + i) {
+          // Varying frame times
+        }
+        renderer.endFrame();
+      }
+
+      const smoothedStats = renderer.getSmoothedPerformanceStats();
+      expect(smoothedStats.frameTime).toBeGreaterThan(0);
+      expect(smoothedStats.fps).toBeGreaterThan(0);
+    });
+
+    it('should reset performance stats correctly', () => {
+      // Generate some performance data
+      renderer.startFrame();
+      renderer.endFrame();
+
+      const sprite: Sprite = {
+        position: new Vector2(0, 0),
+        size: new Vector2(32, 32),
+        color: '#ff0000',
+        depth: 0,
+      };
+      renderer.addToRenderQueue(sprite);
+      renderer.processRenderQueue();
+
+      // Verify we have some data
+      let stats = renderer.getPerformanceStats();
+      expect(stats.frameTime).toBeGreaterThan(0);
+
+      // Reset and verify everything is cleared
+      renderer.resetPerformanceStats();
+      stats = renderer.getPerformanceStats();
+
+      expect(stats.fps).toBe(0);
+      expect(stats.frameTime).toBe(0);
+      expect(stats.renderTime).toBe(0);
+      expect(stats.culledItems).toBe(0);
+      expect(stats.renderedItems).toBe(0);
+      expect(stats.totalItems).toBe(0);
+    });
+
+    it('should track render time history for smoothing', () => {
+      const sprites: Sprite[] = [];
+      for (let i = 0; i < 5; i++) {
+        sprites.push({
+          position: new Vector2(i, i),
+          size: new Vector2(32, 32),
+          color: '#ff0000',
+          depth: i,
+        });
+      }
+
+      // Process multiple render queues to build history
+      for (let i = 0; i < 3; i++) {
+        renderer.clear();
+        sprites.forEach(sprite => renderer.addToRenderQueue(sprite));
+        renderer.processRenderQueue();
+      }
+
+      const smoothedStats = renderer.getSmoothedPerformanceStats();
+      const regularStats = renderer.getPerformanceStats();
+
+      // Smoothed stats should be calculated from history
+      expect(smoothedStats.renderTime).toBeGreaterThanOrEqual(0);
+      expect(regularStats.renderTime).toBeGreaterThanOrEqual(0);
+    });
+
+    it('should handle performance tracking with optimized rendering', () => {
+      renderer.enableOptimizedSorting(true);
+
+      const sprites: Sprite[] = [];
+      for (let i = 0; i < 100; i++) {
+        sprites.push({
+          position: new Vector2(i % 10, Math.floor(i / 10)),
+          size: new Vector2(32, 32),
+          color: '#ff0000',
+          depth: i,
+          layer: i % 3,
+        });
+      }
+
+      renderer.clear();
+      sprites.forEach(sprite => renderer.addToRenderQueue(sprite));
+      renderer.processRenderQueueOptimized();
+
+      const stats = renderer.getPerformanceStats();
+      expect(stats.renderTime).toBeGreaterThanOrEqual(0);
+      expect(stats.renderedItems).toBe(100);
+      expect(stats.totalItems).toBe(100);
+    });
+
+    it('should maintain frame time history within limits', () => {
+      // Add more frames than the history limit (60)
+      for (let i = 0; i < 70; i++) {
+        renderer.startFrame();
+        renderer.endFrame();
+      }
+
+      // The smoothed stats should still work (history should be limited)
+      const smoothedStats = renderer.getSmoothedPerformanceStats();
+      expect(smoothedStats.frameTime).toBeGreaterThanOrEqual(0);
+    });
+
+    it('should update performance stats during regular update cycle', () => {
+      const initialStats = renderer.getPerformanceStats();
+
+      // Simulate frame timing
+      renderer.updatePerformanceStats();
+
+      // Wait a bit and update again
+      const start = performance.now();
+      while (performance.now() - start < 20) {
+        // Wait 20ms
+      }
+
+      renderer.updatePerformanceStats();
+
+      const updatedStats = renderer.getPerformanceStats();
+      expect(updatedStats.frameTime).toBeGreaterThan(initialStats.frameTime);
+    });
+  });
+
+  describe('Frustum Culling', () => {
+    it('should initialize with culling enabled by default', () => {
+      expect(renderer.getCullingEnabled()).toBe(true);
+      expect(renderer.getCullingMargin()).toBe(100);
+    });
+
+    it('should allow enabling and disabling culling', () => {
+      renderer.setCullingEnabled(false);
+      expect(renderer.getCullingEnabled()).toBe(false);
+
+      renderer.setCullingEnabled(true);
+      expect(renderer.getCullingEnabled()).toBe(true);
+    });
+
+    it('should allow setting culling margin', () => {
+      renderer.setCullingMargin(200);
+      expect(renderer.getCullingMargin()).toBe(200);
+
+      // Should clamp negative values to 0
+      renderer.setCullingMargin(-50);
+      expect(renderer.getCullingMargin()).toBe(0);
+    });
+
+    it('should calculate viewport bounds with margin correctly', () => {
+      renderer.setCullingMargin(50);
+      const bounds = renderer.getViewportBoundsWithMargin();
+      const regularBounds = renderer.getViewportBounds();
+
+      // Bounds with margin should be larger than regular bounds
+      expect(bounds.minX).toBeLessThan(regularBounds.minX);
+      expect(bounds.maxX).toBeGreaterThan(regularBounds.maxX);
+      expect(bounds.minY).toBeLessThan(regularBounds.minY);
+      expect(bounds.maxY).toBeGreaterThan(regularBounds.maxY);
+    });
+
+    it('should not cull sprites when culling is disabled', () => {
+      renderer.setCullingEnabled(false);
+
+      const farAwaySprite: Sprite = {
+        position: new Vector2(10000, 10000), // Very far from viewport
+        size: new Vector2(32, 32),
+        color: '#ff0000',
+        depth: 0,
+      };
+
+      expect(renderer.shouldCullSprite(farAwaySprite)).toBe(false);
+    });
+
+    it('should cull sprites outside viewport when culling is enabled', () => {
+      renderer.setCullingEnabled(true);
+      renderer.setCullingMargin(0); // No margin for precise testing
+
+      const bounds = renderer.getViewportBounds();
+
+      // Sprite far outside viewport should be culled
+      const farAwaySprite: Sprite = {
+        position: new Vector2(bounds.maxX + 1000, bounds.maxY + 1000),
+        size: new Vector2(32, 32),
+        color: '#ff0000',
+        depth: 0,
+      };
+
+      expect(renderer.shouldCullSprite(farAwaySprite)).toBe(true);
+    })
+
+    it('should not cull sprites inside viewport', () => {
+      renderer.setCullingEnabled(true);
+
+      // Sprite at origin should not be culled
+      const centerSprite: Sprite = {
+        position: new Vector2(0, 0),
+        size: new Vector2(32, 32),
+        color: '#ff0000',
+        depth: 0,
+      };
+
+      expect(renderer.shouldCullSprite(centerSprite)).toBe(false);
+    });
+
+    it('should consider sprite size when culling', () => {
+      renderer.setCullingEnabled(true);
+      renderer.setCullingMargin(0);
+
+      const bounds = renderer.getViewportBounds();
+
+      // Large sprite that extends into viewport should not be culled
+      const largeSprite: Sprite = {
+        position: new Vector2(bounds.maxX + 50, bounds.maxY + 50),
+        size: new Vector2(200, 200), // Large enough to extend into viewport
+        color: '#ff0000',
+        depth: 0,
+      };
+
+      expect(renderer.shouldCullSprite(largeSprite)).toBe(false);
+    });
+
+    it('should track culled items in performance stats', () => {
+      renderer.setCullingEnabled(true);
+      renderer.clear();
+
+      const bounds = renderer.getViewportBounds();
+
+      // Add one visible sprite and one culled sprite
+      const visibleSprite: Sprite = {
+        position: new Vector2(0, 0),
+        size: new Vector2(32, 32),
+        color: '#ff0000',
+        depth: 0,
+      };
+
+      const culledSprite: Sprite = {
+        position: new Vector2(bounds.maxX + 1000, bounds.maxY + 1000),
+        size: new Vector2(32, 32),
+        color: '#00ff00',
+        depth: 0,
+      };
+
+      renderer.addToRenderQueue(visibleSprite);
+      renderer.addToRenderQueue(culledSprite);
+
+      const stats = renderer.getPerformanceStats();
+      expect(stats.culledItems).toBe(1);
+      expect(stats.totalItems).toBe(1); // Only visible sprite added to queue
+    });
+  });
+
+  // New tests for camera-aware rendering pipeline (Task 6.2)
+  describe('Camera-Aware Rendering Pipeline', () => {
+    it('should update camera system during world rendering', () => {
+      const worldState = {
+        chunks: [
+          {
+            x: 0,
+            y: 0,
+            size: 1000,
+            generatedData: {
+              buildings: [],
+              roads: []
+            }
+          }
+        ]
+      };
+
+      // Set camera target and verify it gets updated
+      renderer.setCameraTarget(new Vector2(10, 10));
+      expect(renderer.isCameraFollowing()).toBe(true);
+
+      renderer.renderWorld(worldState);
+
+      // Camera should have moved towards target during rendering
+      const cameraPos = renderer.getCameraPosition();
+      expect(cameraPos.x).toBeGreaterThan(0);
+      expect(cameraPos.y).toBeGreaterThan(0);
+    });
+
+    it('should cull chunks outside viewport during world rendering', () => {
+      const bounds = renderer.getViewportBounds();
+      
+      const worldState = {
+        chunks: [
+          {
+            x: 0,
+            y: 0,
+            size: 100,
+            generatedData: { buildings: [], roads: [] }
+          },
+          {
+            x: bounds.maxX + 2000,
+            y: bounds.maxY + 2000,
+            size: 100,
+            generatedData: { buildings: [], roads: [] }
+          }
+        ]
+      };
+
+      // Should not throw and should handle culling
+      expect(() => renderer.renderWorld(worldState)).not.toThrow();
+    });
+
+    it('should check if chunks are in viewport correctly', () => {
+      const bounds = renderer.getViewportBounds();
+
+      // Chunk at origin should be in viewport
+      const centerChunk = {
+        x: 0,
+        y: 0,
+        size: 100
+      };
+      expect(renderer.isChunkInViewport(centerChunk, bounds)).toBe(true);
+
+      // Chunk far away should not be in viewport
+      const farChunk = {
+        x: bounds.maxX + 2000,
+        y: bounds.maxY + 2000,
+        size: 100
+      };
+      expect(renderer.isChunkInViewport(farChunk, bounds)).toBe(false);
+
+      // Large chunk that intersects viewport should be in viewport
+      const largeChunk = {
+        x: bounds.maxX + 500,
+        y: bounds.maxY + 500,
+        size: 2000
+      };
+      expect(renderer.isChunkInViewport(largeChunk, bounds)).toBe(true);
+    });
+
+    it('should cull players outside viewport during player rendering', () => {
+      const bounds = renderer.getViewportBounds();
+      
+      const players = [
+        {
+          position: { x: 0, y: 0 },
+          health: 100,
+          isAlive: true,
+          username: 'Player1'
+        },
+        {
+          position: { x: bounds.maxX + 1000, y: bounds.maxY + 1000 },
+          health: 100,
+          isAlive: true,
+          username: 'Player2'
+        }
+      ];
+
+      // Should not throw and should handle culling
+      expect(() => renderer.renderPlayers(players)).not.toThrow();
+    });
+
+    it('should cull projectiles outside viewport during projectile rendering', () => {
+      const bounds = renderer.getViewportBounds();
+      
+      const projectiles = [
+        {
+          position: { x: 0, y: 0 }
+        },
+        {
+          position: { x: bounds.maxX + 1000, y: bounds.maxY + 1000 }
+        }
+      ];
+
+      // Should not throw and should handle culling
+      expect(() => renderer.renderProjectiles(projectiles)).not.toThrow();
+    });
+
+    it('should handle camera movement effects on coordinate transformations', () => {
+      const worldPos = new Vector2(10, 10);
+      
+      // Test with camera at origin
+      renderer.setCameraPosition(new Vector2(0, 0));
+      const screenPos1 = renderer.worldToScreen(worldPos);
+      
+      // Move camera and test again
+      renderer.setCameraPosition(new Vector2(5, 5));
+      const screenPos2 = renderer.worldToScreen(worldPos);
+      
+      // Screen position should change when camera moves
+      expect(screenPos1.x).not.toBeCloseTo(screenPos2.x, 1);
+      expect(screenPos1.y).not.toBeCloseTo(screenPos2.y, 1);
+    });
+
+    it('should handle camera zoom effects on coordinate transformations', () => {
+      const worldPos = new Vector2(10, 10);
+      
+      // Test with 1x zoom
+      renderer.setCameraZoom(1.0);
+      const screenPos1 = renderer.worldToScreen(worldPos);
+      
+      // Test with 2x zoom
+      renderer.setCameraZoom(2.0);
+      const screenPos2 = renderer.worldToScreen(worldPos);
+      
+      // Screen position should be further from center with higher zoom
+      const center = new Vector2(400, 300);
+      const distance1 = screenPos1.subtract(center).magnitude;
+      const distance2 = screenPos2.subtract(center).magnitude;
+      
+      expect(distance2).toBeGreaterThan(distance1);
+    });
+
+    it('should update viewport bounds when camera moves', () => {
+      // Get initial bounds
+      renderer.setCameraPosition(new Vector2(0, 0));
+      const bounds1 = renderer.getViewportBounds();
+      
+      // Move camera and get new bounds
+      renderer.setCameraPosition(new Vector2(100, 100));
+      const bounds2 = renderer.getViewportBounds();
+      
+      // Bounds should shift with camera movement
+      expect(bounds2.minX).toBeGreaterThan(bounds1.minX);
+      expect(bounds2.maxX).toBeGreaterThan(bounds1.maxX);
+      expect(bounds2.minY).toBeGreaterThan(bounds1.minY);
+      expect(bounds2.maxY).toBeGreaterThan(bounds1.maxY);
+    });
+
+    it('should update viewport bounds when camera zooms', () => {
+      // Get bounds at 1x zoom
+      renderer.setCameraZoom(1.0);
+      const bounds1 = renderer.getViewportBounds();
+      
+      // Get bounds at 2x zoom
+      renderer.setCameraZoom(2.0);
+      const bounds2 = renderer.getViewportBounds();
+      
+      // Higher zoom should result in smaller viewport bounds
+      const width1 = bounds1.maxX - bounds1.minX;
+      const width2 = bounds2.maxX - bounds2.minX;
+      const height1 = bounds1.maxY - bounds1.minY;
+      const height2 = bounds2.maxY - bounds2.minY;
+      
+      expect(width2).toBeLessThan(width1);
+      expect(height2).toBeLessThan(height1);
+    });
+
+    it('should use camera bounds for culling calculations', () => {
+      // Move camera to a specific position
+      renderer.setCameraPosition(new Vector2(50, 50));
+      renderer.setCameraZoom(1.5);
+      
+      // Get camera bounds and viewport bounds
+      const cameraBounds = renderer.getCameraBounds();
+      const viewportBounds = renderer.getViewportBounds();
+      
+      // Viewport bounds should be based on camera bounds (with padding)
+      expect(viewportBounds.minX).toBeLessThan(cameraBounds.minX);
+      expect(viewportBounds.maxX).toBeGreaterThan(cameraBounds.maxX);
+      expect(viewportBounds.minY).toBeLessThan(cameraBounds.minY);
+      expect(viewportBounds.maxY).toBeGreaterThan(cameraBounds.maxY);
+    });
+
+    it('should handle camera target and smooth following', () => {
+      // Set initial position
+      renderer.setCameraPosition(new Vector2(0, 0));
+      
+      // Set target position
+      const targetPos = new Vector2(100, 100);
+      renderer.setCameraTarget(targetPos);
+      
+      expect(renderer.isCameraFollowing()).toBe(true);
+      
+      // Update camera system
+      renderer.updateCameraSystem(1.0);
+      
+      // Camera should have moved towards target
+      const cameraPos = renderer.getCameraPosition();
+      expect(cameraPos.x).toBeGreaterThan(0);
+      expect(cameraPos.y).toBeGreaterThan(0);
+      expect(cameraPos.x).toBeLessThan(100);
+      expect(cameraPos.y).toBeLessThan(100);
+    });
+
+    it('should handle camera zoom targeting', () => {
+      // Set initial zoom
+      renderer.setCameraZoom(1.0);
+      
+      // Set target zoom
+      renderer.setCameraTargetZoom(2.0);
+      
+      expect(renderer.isCameraZooming()).toBe(true);
+      
+      // Update camera system
+      renderer.updateCameraSystem(1.0);
+      
+      // Camera should have zoomed towards target
+      const zoom = renderer.getCameraZoom();
+      expect(zoom).toBeGreaterThan(1.0);
+      expect(zoom).toBeLessThan(2.0);
+    });
+
+    it('should stop camera movement when requested', () => {
+      // Set camera target and zoom target
+      renderer.setCameraTarget(new Vector2(100, 100));
+      renderer.setCameraTargetZoom(2.0);
+      
+      expect(renderer.isCameraFollowing()).toBe(true);
+      expect(renderer.isCameraZooming()).toBe(true);
+      
+      // Stop camera
+      renderer.stopCamera();
+      
+      expect(renderer.isCameraFollowing()).toBe(false);
+      expect(renderer.isCameraZooming()).toBe(false);
+    });
+
+    it('should move camera by offset', () => {
+      const initialPos = new Vector2(10, 10);
+      renderer.setCameraPosition(initialPos);
+      
+      const offset = new Vector2(5, -3);
+      renderer.moveCamera(offset);
+      
+      const newPos = renderer.getCameraPosition();
+      expect(newPos.x).toBeCloseTo(15, 5);
+      expect(newPos.y).toBeCloseTo(7, 5);
+    });
+
+    it('should zoom camera by factor', () => {
+      renderer.setCameraZoom(2.0);
+      
+      renderer.zoomCameraBy(1.5);
+      
+      const newZoom = renderer.getCameraZoom();
+      expect(newZoom).toBeCloseTo(3.0, 5);
+    });
+  });
+
+  describe('Edge Cases and Error Handling', () => {
+    it('should handle null or undefined world state', () => {
+      expect(() => renderer.renderWorld(null)).not.toThrow();
+      expect(() => renderer.renderWorld(undefined)).not.toThrow();
+    });
+
+    it('should handle empty player and projectile arrays', () => {
+      expect(() => renderer.renderPlayers([])).not.toThrow();
+      expect(() => renderer.renderProjectiles([])).not.toThrow();
+    });
+
+    it('should handle null player and projectile arrays', () => {
+      expect(() => renderer.renderPlayers(null)).not.toThrow();
+      expect(() => renderer.renderProjectiles(null)).not.toThrow();
+    });
+
+    it('should handle chunks without position data', () => {
+      const chunk = {
+        generatedData: { buildings: [], roads: [] }
+      };
+      
+      expect(() => renderer.isChunkInViewport(chunk)).not.toThrow();
+      expect(renderer.isChunkInViewport(chunk)).toBe(true); // Should default to origin
+    });
+
+    it('should handle negative coordinates', () => {
+      const negativePos = new Vector2(-10, -20);
+      const screenPos = renderer.worldToScreen(negativePos);
+      const convertedBack = renderer.screenToWorld(screenPos);
+
+      expect(convertedBack.x).toBeCloseTo(negativePos.x, 5);
+      expect(convertedBack.y).toBeCloseTo(negativePos.y, 5);
+    });
+  });
+});;
+
+    it('should not cull sprites inside viewport', () => {
+      renderer.setCullingEnabled(true);
+
+      const centerSprite: Sprite = {
+        position: new Vector2(0, 0), // At camera center
+        size: new Vector2(32, 32),
+        color: '#ff0000',
+        depth: 0,
+      };
+
+      expect(renderer.shouldCullSprite(centerSprite)).toBe(false);
+    });
+
+    it('should handle sprite size in culling calculations', () => {
+      renderer.setCullingEnabled(true);
+      renderer.setCullingMargin(0);
+
+      const bounds = renderer.getViewportBounds();
+
+      // Large sprite that extends into viewport even when center is outside
+      const largeSprite: Sprite = {
+        position: new Vector2(bounds.maxX + 10, bounds.maxY + 10),
+        size: new Vector2(100, 100), // Large enough to overlap viewport
+        color: '#ff0000',
+        depth: 0,
+      };
+
+      // Should not be culled because it overlaps with viewport
+      expect(renderer.shouldCullSprite(largeSprite)).toBe(false);
+    });
+
+    it('should cull sprites when adding to render queue', () => {
+      renderer.setCullingEnabled(true);
+      renderer.clear();
+
+      const bounds = renderer.getViewportBounds();
+
+      const visibleSprite: Sprite = {
+        position: new Vector2(0, 0),
+        size: new Vector2(32, 32),
+        color: '#ff0000',
+        depth: 0,
+        id: 'visible',
+      };
+
+      const culledSprite: Sprite = {
+        position: new Vector2(bounds.maxX + 1000, bounds.maxY + 1000),
+        size: new Vector2(32, 32),
+        color: '#00ff00',
+        depth: 0,
+        id: 'culled',
+      };
+
+      renderer.addToRenderQueue(visibleSprite);
+      renderer.addToRenderQueue(culledSprite);
+
+      const stats = renderer.getPerformanceStats();
+      expect(stats.culledItems).toBe(1);
+      expect(renderer.getRenderQueueSize()).toBe(1);
+
+      const queue = renderer.getRenderQueue();
+      expect(queue[0].id).toBe('visible');
+    });
+
+    it('should track culled vs rendered items correctly', () => {
+      renderer.setCullingEnabled(true);
+      renderer.clear();
+
+      const bounds = renderer.getViewportBounds();
+
+      const sprites: Sprite[] = [
+        {
+          position: new Vector2(0, 0),
+          size: new Vector2(32, 32),
+          color: '#ff0000',
+          depth: 0,
+          id: 'visible1',
+        },
+        {
+          position: new Vector2(10, 10),
+          size: new Vector2(32, 32),
+          color: '#00ff00',
+          depth: 1,
+          id: 'visible2',
+        },
+        {
+          position: new Vector2(bounds.maxX + 500, bounds.maxY + 500),
+          size: new Vector2(32, 32),
+          color: '#0000ff',
+          depth: 2,
+          id: 'culled1',
+        },
+        {
+          position: new Vector2(bounds.minX - 500, bounds.minY - 500),
+          size: new Vector2(32, 32),
+          color: '#ffff00',
+          depth: 3,
+          id: 'culled2',
+        },
+      ];
+
+      sprites.forEach(sprite => renderer.addToRenderQueue(sprite));
+
+      const stats = renderer.getPerformanceStats();
+      expect(stats.culledItems).toBe(2);
+      expect(renderer.getRenderQueueSize()).toBe(2);
+      expect(stats.totalItems).toBe(2); // Only non-culled items in queue
+    });
+
+    it('should handle bulk sprite addition with culling', () => {
+      renderer.setCullingEnabled(true);
+      renderer.clear();
+
+      const bounds = renderer.getViewportBounds();
+
+      const sprites: Sprite[] = [];
+
+      // Add 5 visible sprites
+      for (let i = 0; i < 5; i++) {
+        sprites.push({
+          position: new Vector2(i * 10, i * 10),
+          size: new Vector2(32, 32),
+          color: '#ff0000',
+          depth: i,
+          id: `visible${i}`,
+        });
+      }
+
+      // Add 3 culled sprites
+      for (let i = 0; i < 3; i++) {
+        sprites.push({
+          position: new Vector2(
+            bounds.maxX + 500 + i * 10,
+            bounds.maxY + 500 + i * 10
+          ),
+          size: new Vector2(32, 32),
+          color: '#00ff00',
+          depth: i + 5,
+          id: `culled${i}`,
+        });
+      }
+
+      renderer.addSpritesToRenderQueue(sprites);
+
+      const stats = renderer.getPerformanceStats();
+      expect(stats.culledItems).toBe(3);
+      expect(renderer.getRenderQueueSize()).toBe(5);
+    });
+
+    it('should handle position culling without size', () => {
+      renderer.setCullingEnabled(true);
+
+      const bounds = renderer.getViewportBoundsWithMargin();
+
+      // Point inside viewport
+      expect(renderer.shouldCullPosition(new Vector2(0, 0))).toBe(false);
+
+      // Point outside viewport
+      expect(
+        renderer.shouldCullPosition(
+          new Vector2(bounds.maxX + 100, bounds.maxY + 100)
+        )
+      ).toBe(true);
+    });
+
+    it('should handle position culling with size', () => {
+      renderer.setCullingEnabled(true);
+      renderer.setCullingMargin(0);
+
+      const bounds = renderer.getViewportBounds();
+
+      // Rectangle that overlaps viewport
+      expect(
+        renderer.shouldCullPosition(
+          new Vector2(bounds.maxX + 10, bounds.maxY + 10),
+          new Vector2(50, 50)
+        )
+      ).toBe(false);
+
+      // Rectangle completely outside viewport
+      expect(
+        renderer.shouldCullPosition(
+          new Vector2(bounds.maxX + 100, bounds.maxY + 100),
+          new Vector2(20, 20)
+        )
+      ).toBe(true);
+    });
+
+    it('should work correctly with camera movement', () => {
+      renderer.setCullingEnabled(true);
+      renderer.clear();
+
+      // Sprite at origin
+      const sprite: Sprite = {
+        position: new Vector2(0, 0),
+        size: new Vector2(32, 32),
+        color: '#ff0000',
+        depth: 0,
+        id: 'test',
+      };
+
+      // Should be visible when camera is at origin
+      renderer.setCameraPosition(new Vector2(0, 0));
+      renderer.addToRenderQueue(sprite);
+      expect(renderer.getRenderQueueSize()).toBe(1);
+
+      // Clear and move camera far away
+      renderer.clear();
+      renderer.setCameraPosition(new Vector2(1000, 1000));
+      renderer.addToRenderQueue(sprite);
+
+      const stats = renderer.getPerformanceStats();
+      expect(stats.culledItems).toBe(1);
+      expect(renderer.getRenderQueueSize()).toBe(0);
+    });
+
+    it('should work correctly with camera zoom', () => {
+      renderer.setCullingEnabled(true);
+      renderer.setCullingMargin(0); // Remove margin for precise testing
+      renderer.clear();
+
+      // Test that zoom affects viewport bounds calculation
+      const initialZoom = renderer.getCameraZoom();
+      const initialBounds = renderer.getViewportBounds();
+
+      // Zoom in - viewport should get smaller
+      renderer.setCameraZoom(2.0);
+      const zoomedInBounds = renderer.getViewportBounds();
+
+      // Zoom out - viewport should get larger
+      renderer.setCameraZoom(0.5);
+      const zoomedOutBounds = renderer.getViewportBounds();
+
+      // Verify that zoom affects viewport size as expected
+      const initialWidth = initialBounds.maxX - initialBounds.minX;
+      const zoomedInWidth = zoomedInBounds.maxX - zoomedInBounds.minX;
+      const zoomedOutWidth = zoomedOutBounds.maxX - zoomedOutBounds.minX;
+
+      expect(zoomedInWidth).toBeLessThan(initialWidth);
+      expect(zoomedOutWidth).toBeGreaterThan(initialWidth);
+
+      // Test that culling works with the changed viewport
+      const farSprite: Sprite = {
+        position: new Vector2(1000, 1000), // Very far position
+        size: new Vector2(32, 32),
+        color: '#ff0000',
+        depth: 0,
+        id: 'far',
+      };
+
+      // Should be culled regardless of zoom at this distance
+      renderer.addToRenderQueue(farSprite);
+      expect(renderer.getRenderQueueSize()).toBe(0);
+    });
+
+    it('should handle edge cases in culling calculations', () => {
+      renderer.setCullingEnabled(true);
+
+      // Sprite with zero size
+      const zeroSizeSprite: Sprite = {
+        position: new Vector2(0, 0),
+        size: new Vector2(0, 0),
+        color: '#ff0000',
+        depth: 0,
+      };
+
+      expect(() => renderer.shouldCullSprite(zeroSizeSprite)).not.toThrow();
+
+      // Sprite with negative size (should be handled gracefully)
+      const negativeSizeSprite: Sprite = {
+        position: new Vector2(0, 0),
+        size: new Vector2(-10, -10),
+        color: '#ff0000',
+        depth: 0,
+      };
+
+      expect(() => renderer.shouldCullSprite(negativeSizeSprite)).not.toThrow();
+    });
+
+    it('should reset culled items count when clearing queue', () => {
+      renderer.setCullingEnabled(true);
+      renderer.clear();
+
+      const bounds = renderer.getViewportBounds();
+
+      // Add some culled sprites
+      const culledSprite: Sprite = {
+        position: new Vector2(bounds.maxX + 1000, bounds.maxY + 1000),
+        size: new Vector2(32, 32),
+        color: '#ff0000',
+        depth: 0,
+      };
+
+      renderer.addToRenderQueue(culledSprite);
+      renderer.addToRenderQueue(culledSprite);
+
+      let stats = renderer.getPerformanceStats();
+      expect(stats.culledItems).toBe(2);
+
+      // Clear should reset culled count
+      renderer.clearRenderQueue();
+      stats = renderer.getPerformanceStats();
+      expect(stats.culledItems).toBe(0);
+    });
+
+    it('should handle extreme coordinate values', () => {
+      const extremePos = new Vector2(999999, -999999);
+
+      expect(() => {
+        const screenPos = renderer.worldToScreen(extremePos);
+        renderer.screenToWorld(screenPos);
+      }).not.toThrow();
+    });
+
+    it('should handle zero zoom gracefully', () => {
+      renderer.setCameraZoom(0);
+      expect(renderer.getCameraZoom()).toBe(0.1); // Should be clamped to minimum
+    });
+  });
+});

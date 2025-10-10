@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
-import { useGameStore } from '../../stores/gameStore';
 import { GameEngine } from '../../game/engine/GameEngine';
 import { LoadingProgress } from '../../game/systems/LoadingSystem';
+import { useGameStore } from '../../stores/gameStore';
 import { DebugPanel } from './DebugPanel';
-import LoadingScreen from './LoadingScreen';
 import { InteractionPrompt } from './InteractionPrompt';
+import LoadingScreen from './LoadingScreen';
 
 export function GameCanvas() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -39,10 +39,10 @@ export function GameCanvas() {
       canvas.width = window.innerWidth;
       canvas.height = window.innerHeight;
       // Notify renderer of resize
-      const renderer = gameEngine.getRenderer();
-      if (renderer) {
-        renderer.resize(canvas.width, canvas.height);
-      }
+      // const renderer = gameEngine.getRenderer();
+      // if (renderer) {
+      //   renderer.resize(canvas.width, canvas.height);
+      // }
     };
 
     resizeCanvas();
@@ -70,11 +70,10 @@ export function GameCanvas() {
           },
           // Spawn position - start at center of world
           { x: 500, y: 500 },
-          // Chunk radius: 0 = only center chunk for performance
-          0
+          // Chunk radius: 1 = center chunk + surrounding chunks for better visibility
+          1
         );
       } catch (error) {
-        console.error('❌ Game initialization failed:', error);
         setLoadingProgress(prev => ({
           ...prev,
           stage: 'error',

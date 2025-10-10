@@ -1,5 +1,5 @@
-import { Player } from '../entities/Player';
 import { InputManager } from '../engine/InputManager';
+import { Player } from '../entities/Player';
 
 export interface IsometricPlayer extends Player {
   velocity: { x: number; y: number };
@@ -87,9 +87,13 @@ export class IsometricMovementSystem {
     // D should move east (up-right in screen space)
 
     // Convert screen-space input to world-space movement
-    // This matches typical isometric game controls
-    const worldX = inputX + inputY; // Right movement
-    const worldY = inputY - inputX; // Down movement
+    // For isometric movement:
+    // W (up) = northwest direction (-x, -y)
+    // S (down) = southeast direction (+x, +y)  
+    // A (left) = southwest direction (-x, +y)
+    // D (right) = northeast direction (+x, -y)
+    const worldX = inputX; // Direct X input
+    const worldY = inputY; // Direct Y input
 
     // Normalize diagonal movement so it's not faster
     const length = Math.sqrt(worldX * worldX + worldY * worldY);

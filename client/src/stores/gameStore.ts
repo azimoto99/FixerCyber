@@ -18,9 +18,16 @@ interface GameState {
 }
 
 export const useGameStore = create<GameState>(set => ({
-  isAuthenticated: false,
-  currentView: 'login',
-  player: null,
+  isAuthenticated: true, // Set to true for testing
+  currentView: 'game', // Start directly in game mode
+  player: {
+    id: 'demo-player',
+    username: 'TestPlayer',
+    position: { x: 500, y: 500 },
+    health: 100,
+    credits: 1000,
+    isAlive: true,
+  },
   world: null,
   contracts: [],
   inventory: [],
