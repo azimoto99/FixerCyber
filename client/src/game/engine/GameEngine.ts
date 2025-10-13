@@ -5,8 +5,9 @@ import { CombatSystem } from '../systems/CombatSystem';
 import { ContractSystem } from '../systems/ContractSystem';
 import { HackingSystem } from '../systems/HackingSystem';
 import { InventorySystem } from '../systems/InventorySystem';
-import { IsometricMovementSystem } from '../systems/IsometricMovementSystem';
 import { LoadingProgress, LoadingSystem } from '../systems/LoadingSystem';
+import { MultiplayerSystem } from '../systems/MultiplayerSystem';
+import { TacticalMovementSystem } from '../systems/TacticalMovementSystem';
 import { UISystem } from '../systems/UISystem';
 import { WorldSystem } from '../systems/WorldSystem';
 import { Vector2 } from '../utils/Vector2';
@@ -23,7 +24,8 @@ export class GameEngine {
   private contractSystem: ContractSystem;
   private hackingSystem: HackingSystem;
   private inventorySystem: InventorySystem;
-  private movementSystem: IsometricMovementSystem;
+  private movementSystem: TacticalMovementSystem;
+  private multiplayerSystem: MultiplayerSystem;
   private uiSystem: UISystem;
   private loadingSystem: LoadingSystem;
   private buildingInteractionSystem: BuildingInteractionSystem;
@@ -49,9 +51,12 @@ export class GameEngine {
     // Initialize loading system
     this.loadingSystem = new LoadingSystem(this.worldSystem);
 
+    // Initialize multiplayer system
+    this.multiplayerSystem = new MultiplayerSystem();
+
     // Pass worldSystem to systems that need collision detection
     this.combatSystem = new CombatSystem(this.worldSystem);
-    this.movementSystem = new IsometricMovementSystem(this.worldSystem);
+    this.movementSystem = new TacticalMovementSystem(this.worldSystem);
 
     this.contractSystem = new ContractSystem();
     this.hackingSystem = new HackingSystem();
@@ -109,9 +114,10 @@ export class GameEngine {
       // Show damage number at target location
       const targetPlayer = this.worldSystem.getPlayer(data.targetId);
       if (targetPlayer) {
-        const screenPos = this.renderer.worldToScreen(
-          { x: targetPlayer.position.x, y: targetPlayer.position.y }
-        );
+        const screenPos = this.renderer.worldToScreen({
+          x: targetPlayer.position.x,
+          y: targetPlayer.position.y,
+        });
         this.uiSystem.addDamageNumber(
           screenPos.x,
           screenPos.y - 20,
@@ -222,24 +228,29 @@ export class GameEngine {
   }
 
   private handlePlayerMovement(movementData: any) {
-    // Send movement to server via WebSocket
-    // For now, we'll log it for debugging
-    console.log('Player movement:', movementData);
-
-    // In a real implementation, this would send to server:
-    // this.networkManager.sendPlayerMovement(movementData)
+    // Send movement to multiplayer system for network synchronization
+    if (
+      this.multiplayerSystem &&
+      movementData.position &&
+      movementData.velocity
+    ) {
+      this.multiplayerSystem.sendMovement(
+        movementData.position,
+        movementData.velocity,
+        movementData.facing || 0
+      );
+    }
   }
 
   private async initializeDemoPlayer() {
-    // Create a demo player for testing
-    const demoPlayer = {
-      id: 'demo-player',
-      username: 'TestPlayer',
-      position: { x: 500, y: 500 }, // Start at center of first chunk
-      health: 100,
-      credits: 1000,
-      isAlive: true,
-    };
+    // Import Player class for proper multiplayer integration
+    const { Player } = await import('../entities/Player');
+
+    // Create a proper Player instance for multiplayer
+    const demoPlayer = new Player('demo-player', 'TestPlayer', {
+      x: 500,
+      y: 500,
+    });
 
     console.log('Initializing demo player at:', demoPlayer.position);
 
@@ -251,6 +262,9 @@ export class GameEngine {
 
     // Initialize player in combat system
     this.combatSystem.initializePlayer(demoPlayer.id, 100, 0);
+
+    // Set local player in multiplayer system
+    this.multiplayerSystem.setLocalPlayer(demoPlayer);
 
     // Initialize character animations
     try {
@@ -285,9 +299,7 @@ export class GameEngine {
 
     if (combatAction === 'shoot') {
       // Convert screen coordinates to world coordinates using isometric projection
-      const worldTarget = this.renderer.screenToWorld(
-        mousePos.x, mousePos.y
-      );
+      const worldTarget = this.renderer.screenToWorld(mousePos.x, mousePos.y);
 
       const shootData = {
         playerId: 'demo-player',
@@ -460,6 +472,7 @@ export class GameEngine {
     try {
       // Update all game systems with error handling
       this.movementSystem?.update(_deltaTime, this.inputManager);
+      this.multiplayerSystem?.update(_deltaTime);
       this.worldSystem?.update(_deltaTime);
       this.combatSystem?.update(_deltaTime);
       this.contractSystem?.update(_deltaTime);
@@ -545,10 +558,13 @@ export class GameEngine {
         console.warn('GameEngine: No world state to render!');
       }
 
-      // Render players
-      const players = this.worldSystem?.getPlayers();
-      if (players && players.length > 0) {
-        this.renderer?.renderPlayers(players);
+      // Render players (local + remote from multiplayer system)
+      const localPlayers = this.worldSystem?.getPlayers() || [];
+      const remotePlayers = this.multiplayerSystem?.getRemotePlayers() || [];
+      const allPlayers = [...localPlayers, ...remotePlayers];
+
+      if (allPlayers.length > 0) {
+        this.renderer?.renderPlayers(allPlayers);
       }
 
       // Render projectiles
